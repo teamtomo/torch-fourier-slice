@@ -17,7 +17,7 @@ sources = ["src"]
 [project]
 name = "torch-fourier-slice"
 dynamic = ["version"]
-description = "Fourier slice extraction/insertion from 2D images and 3D volumes in PyTorch."
+description = "Fourier slice extraction/insertion in PyTorch."
 readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "BSD-3-Clause" }
