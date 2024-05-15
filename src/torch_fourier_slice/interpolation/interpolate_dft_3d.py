@@ -91,12 +91,12 @@ def insert_into_dft_3d(
     data, coordinates = data[in_volume_idx], coordinates[in_volume_idx]
 
     # pre-compute corner coordinates around each sampling point
-    corners = torch.empty(size=(data.shape[0], 2, 3), dtype=torch.long)
+    corners = torch.empty(size=(data.shape[0], 2, 3), dtype=torch.long, device=dft.device)
     corners[:, 0] = torch.floor(coordinates)  # for lower corners
     corners[:, 1] = torch.ceil(coordinates)  # for upper corners
 
     # pre-compute linear interpolation weights for each value being inserted
-    _weights = torch.empty(size=(data.shape[0], 2, 3))  # (b, 2, zyx)
+    _weights = torch.empty(size=(data.shape[0], 2, 3), dtype=weights.dtype, device=weights.device)  # (b, 2, zyx)
     _weights[:, 1] = coordinates - corners[:, 0]  # upper corner weights
     _weights[:, 0] = 1 - _weights[:, 1]  # lower corner weights
 

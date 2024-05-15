@@ -26,6 +26,7 @@ def insert_central_slices_rfft_3d(
         freq_grid_mask = normed_grid <= fftfreq_max
         valid_coords = freq_grid[freq_grid_mask, ...]  # (b, zyx)
     else:
+        freq_grid_mask = torch.ones(size=image_rfft.shape[-2:], dtype=torch.bool, device=image_rfft.device)
         valid_coords = einops.rearrange(freq_grid, 'h w zyx -> (h w) zyx')
     valid_coords = einops.rearrange(valid_coords, 'b zyx -> b zyx 1')
 
@@ -36,30 +37,30 @@ def insert_central_slices_rfft_3d(
     rotation_matrices = einops.rearrange(rotation_matrices, '... i j -> ... 1 i j')
 
     # rotate all valid coordinates by each rotation matrix and remove last dim
-    rotated_coords = einops.rearrange(
+    rotated_coordinates = einops.rearrange(
         rotation_matrices @ valid_coords, pattern='... b zyx 1 -> ... b zyx'
     )
 
     # flip coordinates in redundant half transform and take conjugate value
-    conjugate_mask = rotated_coords[..., 2] < 0
-    rotated_coords[conjugate_mask] *= -1
+    conjugate_mask = rotated_coordinates[..., 2] < 0
+    rotated_coordinates[conjugate_mask] *= -1
     valid_data[conjugate_mask] = torch.conj(valid_data[conjugate_mask])
 
-    # calculate actual coordinates in DFT array from fftfreq coordinates
-    valid_coords = fftfreq_to_dft_coordinates(
-        valid_coords, image_shape=volume_shape, rfft=True
+    # calculate positions to sample in DFT array from fftfreq coordinates
+    rotated_coordinates = fftfreq_to_dft_coordinates(
+        rotated_coordinates, image_shape=volume_shape, rfft=True
     )
 
     # initialise output volume and volume for keeping track of weights
     dft_3d = torch.zeros(
-        size=rfft_shape(volume_shape), dtype=torch.complex64, device=image_rfft.device
+        size=rfft_shape(volume_shape), dtype=torch.complex128, device=image_rfft.device
     )
-    weights = torch.zeros_like(dft_3d, dtype=torch.float64)
+    weights = torch.zeros_like(dft_3d, dtype=torch.float64, device=image_rfft.device)
 
     # insert data into 3D DFT
     dft_3d, weights = insert_into_dft_3d(
         data=valid_data,
-        coordinates=valid_coords,
+        coordinates=rotated_coordinates,
         dft=dft_3d,
         weights=weights
     )

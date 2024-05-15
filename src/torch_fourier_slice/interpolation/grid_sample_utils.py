@@ -2,6 +2,7 @@ from typing import Sequence
 
 import torch
 
+
 def array_to_grid_sample(
     array_coordinates: torch.Tensor, array_shape: Sequence[int]
 ) -> torch.Tensor:
