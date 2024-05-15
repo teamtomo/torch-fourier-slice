@@ -7,3 +7,8 @@
 [![codecov](https://codecov.io/gh/alisterburt/torch-fourier-slice/branch/main/graph/badge.svg)](https://codecov.io/gh/alisterburt/torch-fourier-slice)
 
 Fourier slice extraction/insertion from 2D images and 3D volumes in PyTorch.
+
+## Why?
+
+Cryo-EM image formation/reconstruction
+

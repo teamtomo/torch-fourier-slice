@@ -1,9 +1,9 @@
 import torch
 import einops
+from torch_image_lerp import sample_image_3d
 
 from ..dft_utils import fftfreq_to_dft_coordinates
 from ..grids.central_slice_grid import central_slice_fftfreq_grid
-from ..interpolation import sample_dft_3d, sample_image_3d
 
 
 def extract_central_slices_rfft_3d(
@@ -36,7 +36,7 @@ def extract_central_slices_rfft_3d(
     valid_coords = einops.rearrange(valid_coords, 'b zyx -> b zyx 1')
 
     # rotation matrices rotate xyz coordinates, make them rotate zyx coordinates
-    rotation_matrices = torch.flip(rotation_matrices, dims=(-1, ))
+    rotation_matrices = torch.flip(rotation_matrices, dims=(-1,))
 
     # add extra dim to rotation matrices for broadcasting
     rotation_matrices = einops.rearrange(rotation_matrices, '... i j -> ... 1 i j')

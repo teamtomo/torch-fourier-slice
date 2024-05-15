@@ -6,7 +6,7 @@ from scipy.stats import special_ortho_group
 from torch_fourier_slice import project_3d_to_2d, backproject_2d_to_3d
 
 
-N_IMAGES = 250
+N_IMAGES = 1000
 torch.manual_seed(42)
 
 # load a volume and normalise
@@ -34,10 +34,6 @@ reconstruction = backproject_2d_to_3d(
 )
 reconstruction -= torch.mean(reconstruction)
 reconstruction = reconstruction / torch.std(reconstruction)
-
-# fsc
-# _reconstructionfsc = fsc(, volume)
-# print(_fsc)
 
 # visualise
 import napari
