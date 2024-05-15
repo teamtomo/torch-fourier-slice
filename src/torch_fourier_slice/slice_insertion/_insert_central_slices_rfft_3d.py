@@ -2,8 +2,8 @@ import einops
 import torch
 
 from ..dft_utils import fftfreq_to_dft_coordinates, rfft_shape
-from ..grids.central_slice_grid import central_slice_grid
-from ..interpolation import insert_into_dft_3d
+from ..grids.central_slice_grid import central_slice_fftfreq_grid
+from ..interpolation import insert_into_image_3d
 
 
 def insert_central_slices_rfft_3d(
@@ -13,7 +13,7 @@ def insert_central_slices_rfft_3d(
     fftfreq_max: float | None = None
 ):
     # generate grid of DFT sample frequencies for a central slice spanning the xy-plane
-    freq_grid = central_slice_grid(
+    freq_grid = central_slice_fftfreq_grid(
         volume_shape=volume_shape,
         rfft=True,
         fftshift=True,
@@ -32,6 +32,9 @@ def insert_central_slices_rfft_3d(
 
     # get (..., b) array of data at each coordinate from image rffts
     valid_data = image_rfft[..., freq_grid_mask]
+
+    # rotation matrices rotate xyz coordinates, make them rotate zyx coordinates
+    rotation_matrices = torch.flip(rotation_matrices, dims=(-1, ))
 
     # add extra dim to rotation matrices for broadcasting
     rotation_matrices = einops.rearrange(rotation_matrices, '... i j -> ... 1 i j')
@@ -58,10 +61,10 @@ def insert_central_slices_rfft_3d(
     weights = torch.zeros_like(dft_3d, dtype=torch.float64, device=image_rfft.device)
 
     # insert data into 3D DFT
-    dft_3d, weights = insert_into_dft_3d(
+    dft_3d, weights = insert_into_image_3d(
         data=valid_data,
         coordinates=rotated_coordinates,
-        dft=dft_3d,
+        image=dft_3d,
         weights=weights
     )
     return dft_3d, weights

@@ -5,7 +5,7 @@ from .fftfreq_grid import _construct_fftfreq_grid_2d
 from ..dft_utils import rfft_shape, fftshift_2d
 
 
-def central_slice_grid(
+def central_slice_fftfreq_grid(
     volume_shape: tuple[int, int, int],
     rfft: bool,
     fftshift: bool = False,

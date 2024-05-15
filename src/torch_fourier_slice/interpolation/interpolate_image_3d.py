@@ -27,12 +27,22 @@ def sample_image_3d(
     samples: torch.Tensor
         `(..., )` array of samples from `image`.
     """
+    complex_input = torch.is_complex(image)
     # setup for sampling with torch.nn.functional.grid_sample
     coordinates, ps = einops.pack([coordinates], pattern='* zyx')
     n_samples = coordinates.shape[0]
 
-    image = einops.repeat(image, 'd h w -> b 1 d h w', b=n_samples)  # b c d h w
-    coordinates = einops.rearrange(coordinates, 'b zyx -> b 1 1 1 zyx')  # b d h w zyx
+    if complex_input is True:
+        # cannot sample complex tensors directly with grid_sample
+        # c.f. https://github.com/pytorch/pytorch/issues/67634
+        # workaround: treat real and imaginary parts as separate channels
+        image = torch.view_as_real(image)
+        image = einops.rearrange(image, 'd h w complex -> complex d h w')
+        image = einops.repeat(image, 'complex d h w -> b complex d h w', b=n_samples)
+        coordinates = einops.rearrange(coordinates, 'b zyx -> b 1 1 1 zyx')  # b d h w zyx
+    else:
+        image = einops.repeat(image, 'd h w -> b 1 d h w', b=n_samples)  # b c d h w
+        coordinates = einops.rearrange(coordinates, 'b zyx -> b 1 1 1 zyx')  # b d h w zyx
 
     # take the samples
     samples = F.grid_sample(
@@ -42,7 +52,11 @@ def sample_image_3d(
         padding_mode='border',  # this increases sampling fidelity at edges
         align_corners=True,
     )
-    samples = einops.rearrange(samples, 'b complex 1 1 1 -> b complex')
+    if complex_input is True:
+        samples = einops.rearrange(samples, 'b complex 1 1 1 -> b complex')
+        samples = torch.view_as_complex(samples.contiguous())  # (b, )
+    else:
+        samples = einops.rearrange(samples, 'b c 1 1 1 -> b c')
 
     # set samples from outside of volume to zero
     coordinates = einops.rearrange(coordinates, 'b 1 1 1 zyx -> b zyx')
@@ -97,16 +111,16 @@ def insert_into_image_3d(
     data, coordinates = data[inside], coordinates[inside]
 
     # calculate and cache floor and ceil of coordinates for each data point being inserted
-    _c = torch.empty(size=(data.shape[0], 2, 3), dtype=torch.long)
+    _c = torch.empty(size=(data.shape[0], 2, 3), dtype=torch.long, device=image.device)
     _c[:, 0] = torch.floor(coordinates)  # for lower corners
     _c[:, 1] = torch.ceil(coordinates)  # for upper corners
 
     # calculate linear interpolation weights for each data point being inserted
-    _w = torch.empty(size=(data.shape[0], 2, 3))  # (b, 2, zyx)
+    _w = torch.empty(size=(data.shape[0], 2, 3), dtype=torch.float64, device=image.device)  # (b, 2, zyx)
     _w[:, 1] = coordinates - _c[:, 0]  # upper corner weights
     _w[:, 0] = 1 - _w[:, 1]  # lower corner weights
 
-    # define function for adding weighted data at nearest 4 pixels to each coordinate
+    # define function for adding weighted data at nearest 8 voxels to each coordinate
     # make sure to do atomic adds, don't just override existing data at each position
     def add_data_at_corner(z: Literal[0, 1], y: Literal[0, 1], x: Literal[0, 1]):
         w = einops.reduce(_w[:, [z, y, x], [0, 1, 2]], 'b zyx -> b', reduction='prod')

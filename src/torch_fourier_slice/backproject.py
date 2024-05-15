@@ -9,7 +9,6 @@ def backproject_2d_to_3d(
     images: torch.Tensor,  # (b, h, w)
     rotation_matrices: torch.Tensor,  # (b, 3, 3)
     pad: bool = True,
-    do_gridding_correction: bool = True,
     fftfreq_max: float | None = None,
 ):
     """Perform a 3D reconstruction from a set of 2D projection images.
@@ -17,16 +16,12 @@ def backproject_2d_to_3d(
     Parameters
     ----------
     images: torch.Tensor
-        `(batch, h, w)` array of 2D projection images.
+        `(..., h, w)` array of 2D projection images.
     rotation_matrices: torch.Tensor
-        `(batch, 3, 3)` array of rotation matrices for insert of `images`.
-        Rotation matrices left-multiply column vectors containing coordinates.
+        `(..., 3, 3)` array of rotation matrices for insert of `images`.
+        Rotation matrices left-multiply column vectors containing xyz coordinates.
     pad: bool
         Whether to pad the input images 2x (`True`) or not (`False`).
-    do_gridding_correction: bool
-        Each 2D image pixel contributes to the nearest eight voxels in 3D and weights are set
-        according to a linear interpolation kernel. The effects of this trilinear interpolation in
-        Fourier space can be 'undone' through division by a sinc^2 function in real space.
     fftfreq_max: float | None
         Maximum frequency (cycles per pixel) included in the projection.
 
@@ -69,15 +64,14 @@ def backproject_2d_to_3d(
     dft = torch.fft.ifftshift(dft, dim=(-3, -2, -1))  # center in real space
 
     # correct for convolution with linear interpolation kernel
-    if do_gridding_correction is True:
-        grid = fftfreq_grid(
-            image_shape=dft.shape,
-            rfft=False,
-            fftshift=True,
-            norm=True,
-            device=dft.device
-        )
-        dft = dft / torch.sinc(grid) ** 2
+    grid = fftfreq_grid(
+        image_shape=dft.shape,
+        rfft=False,
+        fftshift=True,
+        norm=True,
+        device=dft.device
+    )
+    dft = dft / torch.sinc(grid) ** 2
 
     # unpad
     if pad is True:

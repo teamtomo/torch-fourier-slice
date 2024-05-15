@@ -18,8 +18,8 @@ def project_3d_to_2d(
     volume: torch.Tensor
         `(d, d, d)` volume.
     rotation_matrices: torch.Tensor
-        `(..., 3, 3)` array of matrices which rotate coordinates (zyx) of the
-        central slice to be sampled.
+        `(..., 3, 3)` array of rotation matrices for insert of `images`.
+        Rotation matrices left-multiply column vectors containing xyz coordinates.
     pad: bool
         Whether to pad the volume 2x with zeros to increase sampling rate in the DFT.
     fftfreq_max: float | None
@@ -66,5 +66,4 @@ def project_3d_to_2d(
     # unpad if required
     if pad is True:
         projections = projections[..., pad_length:-pad_length, pad_length:-pad_length]
-
     return torch.real(projections)

@@ -2,8 +2,8 @@ import torch
 import einops
 
 from ..dft_utils import fftfreq_to_dft_coordinates
-from ..grids.central_slice_grid import central_slice_grid
-from ..interpolation import sample_dft_3d
+from ..grids.central_slice_grid import central_slice_fftfreq_grid
+from ..interpolation import sample_dft_3d, sample_image_3d
 
 
 def extract_central_slices_rfft_3d(
@@ -14,12 +14,12 @@ def extract_central_slices_rfft_3d(
 ):
     """Extract central slice from an fftshifted rfft."""
     # generate grid of DFT sample frequencies for a central slice spanning the xy-plane
-    freq_grid = central_slice_grid(
+    freq_grid = central_slice_fftfreq_grid(
         volume_shape=image_shape,
         rfft=True,
         fftshift=True,
         device=volume_rfft.device,
-    )  # (h, w, 3)
+    )  # (h, w, 3) zyx coords
 
     # keep track of some shapes
     stack_shape = tuple(rotation_matrices.shape[:-2])
@@ -34,6 +34,9 @@ def extract_central_slices_rfft_3d(
     else:
         valid_coords = einops.rearrange(freq_grid, 'h w zyx -> (h w) zyx')
     valid_coords = einops.rearrange(valid_coords, 'b zyx -> b zyx 1')
+
+    # rotation matrices rotate xyz coordinates, make them rotate zyx coordinates
+    rotation_matrices = torch.flip(rotation_matrices, dims=(-1, ))
 
     # add extra dim to rotation matrices for broadcasting
     rotation_matrices = einops.rearrange(rotation_matrices, '... i j -> ... 1 i j')
@@ -54,7 +57,7 @@ def extract_central_slices_rfft_3d(
         image_shape=image_shape,
         rfft=True
     )
-    samples = sample_dft_3d(dft=volume_rfft, coordinates=rotated_coords)  # (...) rfft
+    samples = sample_image_3d(image=volume_rfft, coordinates=rotated_coords)  # (...) rfft
 
     # take complex conjugate of values from redundant half transform
     samples[conjugate_mask] = torch.conj(samples[conjugate_mask])

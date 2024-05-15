@@ -24,8 +24,6 @@ projections = project_3d_to_2d(
     volume,
     rotation_matrices=rotations,
     pad=True,
-    pixel_spacing_angstroms=4,
-    maximum_resolution_angstroms=None,
 )  # (b, h, w)
 
 # reconstruct volume from projections
@@ -33,23 +31,21 @@ reconstruction = backproject_2d_to_3d(
     images=projections,
     rotation_matrices=rotations,
     pad=True,
-    pixel_spacing_angstroms=4,
-    maximum_resolution_angstroms=None,
 )
-# reconstruction -= torch.mean(reconstruction)
-# reconstruction = reconstruction / torch.std(reconstruction)
+reconstruction -= torch.mean(reconstruction)
+reconstruction = reconstruction / torch.std(reconstruction)
 
 # fsc
 # _reconstructionfsc = fsc(, volume)
 # print(_fsc)
 
 # visualise
-# import napari
-#
-# viewer = napari.Viewer()
-# viewer.add_image(projections.numpy(), name='projections')
-#
-# viewer = napari.Viewer(ndisplay=3)
-# viewer.add_image(volume.numpy(), name='ground truth')
-# viewer.add_image(reconstruction.numpy(), name='reconstruction')
-# napari.run()
+import napari
+
+viewer = napari.Viewer()
+viewer.add_image(projections.numpy(), name='projections')
+
+viewer = napari.Viewer(ndisplay=3)
+viewer.add_image(volume.numpy(), name='ground truth')
+viewer.add_image(reconstruction.numpy(), name='reconstruction')
+napari.run()
