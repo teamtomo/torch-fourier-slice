@@ -39,6 +39,7 @@ dependencies = [
     "torch",
     "numpy",
     "einops",
+    "torch_image_lerp",
 ]
 
 # https://peps.python.org/pep-0621/#dependencies-optional-dependencies
