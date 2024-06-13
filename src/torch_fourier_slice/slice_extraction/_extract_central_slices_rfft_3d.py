@@ -36,7 +36,16 @@ def extract_central_slices_rfft_3d(
     valid_coords = einops.rearrange(valid_coords, 'b zyx -> b zyx 1')
 
     # rotation matrices rotate xyz coordinates, make them rotate zyx coordinates
-    rotation_matrices = torch.flip(rotation_matrices, dims=(-1,))
+    # xyz:
+    # [a b c] [x]    [ax + by + cz]
+    # [d e f] [y]  = [dx + ey + fz]
+    # [g h i] [z]    [gx + hy + iz]
+    #
+    # zyx:
+    # [i h g] [z]    [gx + hy + iz]
+    # [f e d] [y]  = [dx + ey + fz]
+    # [c b a] [x]    [ax + by + cz]
+    rotation_matrices = torch.flip(rotation_matrices, dims=(-2, -1))
 
     # add extra dim to rotation matrices for broadcasting
     rotation_matrices = einops.rearrange(rotation_matrices, '... i j -> ... 1 i j')
