@@ -3,7 +3,7 @@ import torch
 from torch_image_lerp import insert_into_image_3d
 
 from ..dft_utils import fftfreq_to_dft_coordinates, rfft_shape
-from ..grids.central_slice_grid import central_slice_fftfreq_grid
+from ..grids.central_slice_fftfreq_grid import central_slice_fftfreq_grid
 
 
 def insert_central_slices_rfft_3d(

@@ -1,1 +1,1 @@
-from .fftfreq_grid import fftfreq_grid
+from .central_slice_fftfreq_grid import central_slice_fftfreq_grid

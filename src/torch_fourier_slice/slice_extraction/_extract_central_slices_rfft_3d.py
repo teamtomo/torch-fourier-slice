@@ -3,7 +3,7 @@ import einops
 from torch_image_lerp import sample_image_3d
 
 from ..dft_utils import fftfreq_to_dft_coordinates
-from ..grids.central_slice_grid import central_slice_fftfreq_grid
+from ..grids.central_slice_fftfreq_grid import central_slice_fftfreq_grid
 
 
 def extract_central_slices_rfft_3d(
