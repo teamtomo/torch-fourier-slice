@@ -1,16 +1,18 @@
 import torch
 import einops
+from functools import lru_cache
 from torch_image_lerp import sample_image_3d
 
 from ..dft_utils import fftfreq_to_dft_coordinates
 from ..grids.central_slice_grid import central_slice_fftfreq_grid
 
 
-def extract_central_slices_rfft_3d(
-    volume_rfft: torch.Tensor,
+@lru_cache(1)
+def _prepare_extract_central_slices_rfft_3d(
     image_shape: tuple[int, int, int],
-    rotation_matrices: torch.Tensor,  # (..., 3, 3)
-    fftfreq_max: float | None = None,
+    rotation_matrices_shape: torch.Size,  # (..., 3, 3)
+    fftfreq_max: float | None,
+    device: torch.device
 ):
     """Extract central slice from an fftshifted rfft."""
     # generate grid of DFT sample frequencies for a central slice spanning the xy-plane
@@ -18,11 +20,11 @@ def extract_central_slices_rfft_3d(
         volume_shape=image_shape,
         rfft=True,
         fftshift=True,
-        device=volume_rfft.device,
+        device=device,
     )  # (h, w, 3) zyx coords
 
     # keep track of some shapes
-    stack_shape = tuple(rotation_matrices.shape[:-2])
+    stack_shape = tuple(rotation_matrices_shape[:-2])
     rfft_shape = freq_grid.shape[-3], freq_grid.shape[-2]
     output_shape = (*stack_shape, *rfft_shape)
 
@@ -34,7 +36,24 @@ def extract_central_slices_rfft_3d(
     else:
         valid_coords = einops.rearrange(freq_grid, 'h w zyx -> (h w) zyx')
     valid_coords = einops.rearrange(valid_coords, 'b zyx -> b zyx 1')
-
+    return freq_grid, rfft_shape, output_shape, valid_coords
+    
+    
+def extract_central_slices_rfft_3d(
+    volume_rfft: torch.Tensor,
+    image_shape: tuple[int, int, int],
+    rotation_matrices: torch.Tensor,  # (..., 3, 3)
+    fftfreq_max: float | None = None,
+):
+    """Extract central slice from an fftshifted rfft."""
+    # generate grid of DFT sample frequencies for a central slice spanning the xy-plane
+    
+    freq_grid, rfft_shape, output_shape, valid_coords = _prepare_extract_central_slices_rfft_3d(
+        image_shape = image_shape,
+        rotation_matrices_shape=rotation_matrices.shape,
+        fftfreq_max = fftfreq_max,
+        device = volume_rfft.device
+    )
     # rotation matrices rotate xyz coordinates, make them rotate zyx coordinates
     # xyz:
     # [a b c] [x]    [ax + by + cz]
@@ -46,7 +65,6 @@ def extract_central_slices_rfft_3d(
     # [f e d] [y]  = [dx + ey + fz]
     # [c b a] [x]    [ax + by + cz]
     rotation_matrices = torch.flip(rotation_matrices, dims=(-2, -1))
-
     # add extra dim to rotation matrices for broadcasting
     rotation_matrices = einops.rearrange(rotation_matrices, '... i j -> ... 1 i j')
 
