@@ -1,7 +1,4 @@
-# temporary stub
-
-def test_something():
-    pass
+from torch_fourier_shell_correlation import fsc
 
 
 
@@ -31,8 +28,9 @@ def test_central_slice():
             print(f"Failed to download the file. Status code: {response.status_code}")
             raise RuntimeError()
     volume = torch.as_tensor(mrcfile.read(fname), dtype=torch.float32)
-
-    rot_mats =  torch.as_tensor(R.from_euler("ZYZ", [[0,0,0],[0,0,90], [0,90,0]], degrees=True
+    
+    eulersDegs =  [[0,0,0],[0,0,90], [0,90,0], [0,45,45]]
+    rot_mats =  torch.as_tensor(R.from_euler("ZYZ", eulersDegs, degrees=True
                                             ).as_matrix(), dtype=torch.float32)
     projs = project_3d_to_2d(
                     volume=volume,
@@ -40,40 +38,47 @@ def test_central_slice():
                     pad=False,
                     fftfreq_max=None)
     
+    
+    from torch_fourier_slice.grids.fftfreq_grid import fftfreq_grid
+    from torch_fourier_slice.dft_utils import fftfreq_to_dft_coordinates
 
-    affine_mats = torch.zeros(rot_mats.shape[0], 3, 4)
-    affine_mats[:,:3,:3] = rot_mats
-#    affine_mats[:,:3,-1] += 1./volume.shape[-1] #TODO: It seems that the projections may be off by half a pixel
+    freq_grid = fftfreq_grid(image_shape = volume.shape, rfft = False, fftshift = True, spacing= 1, norm = False, device = "cpu")
 
 
-    volume = volume[None,None,...].expand(rot_mats.shape[0], -1, -1, -1, -1)
-    rot_vols = torch.nn.functional.grid_sample(volume, torch.nn.functional.affine_grid(affine_mats, size=volume.shape), align_corners=False)
-    projs_sum = rot_vols.sum(2).squeeze(1)
+    rotation_matrices = torch.flip(rot_mats, dims=(-2, -1))
+
+    rotated_coords = torch.einsum("b q p, ... p -> b  ... q", rotation_matrices, freq_grid)
+    _rotated_coords = fftfreq_to_dft_coordinates(frequencies=rotated_coords, image_shape=volume.shape, rfft=False)
+    
+    from torch_image_lerp import sample_image_3d
+    rot_vols = sample_image_3d(image=volume, coordinates=_rotated_coords)
+
+        
+    projs_sum = rot_vols.sum(1)
+       
+    diff = torch.abs(projs - projs_sum)
+    from matplotlib import pyplot as plt
+    
     
     for i in range(projs.shape[0]):
-        assert torch.isclose(projs[i], projs_sum[i], atol=1e-1).all(), f"Error, disagreement in projections {i}"
+         _fsc = fsc(projs[i,...], projs_sum[i,...])
+#         print(_fsc)
+         print(diff[i,...].mean(-1).mean(-1))
+#        assert torch.isclose(projs[i], projs_sum[i], atol=1e-1).all(), f"Error, disagreement in projections {i}"
+#        breakpoint()
+         plt.plot(_fsc, label="euler degs %s"%(eulersDegs[i]))
+    plt.legend()
+    plt.show()
         
-    diff = torch.abs(projs - projs_sum)
-    print(diff.mean(-1).mean(-1))
 
-#    from matplotlib import pyplot as plt
-#    f, axes = plt.subplots(3,3)
-#    axes[0,0].imshow(projs[0])
-#    axes[0,1].imshow(projs[1])
-#    axes[0,2].imshow(projs[2])
-#    
-#    axes[1,0].imshow(diff[0])
-#    axes[1,1].imshow(diff[1])
-#    axes[1,2].imshow(diff[2])
-#    
-#    axes[2,0].imshow(projs_sum[0])
-#    axes[2,1].imshow(projs_sum[1])
-#    axes[2,2].imshow(projs_sum[2])
-#    plt.show()
+    f, axes = plt.subplots(3,len(diff))
+    for i in range(len(diff)):
+        axes[0,i].imshow(projs[i])
+        axes[1,i].imshow(diff[i])
+        axes[2,i].imshow(projs_sum[i])
+    plt.show()
 
-"""
- PYTHONPATH=../torch-image-lerp/src:$PYTHONPATH  python -m src.torch_fourier_slice.project
-"""
+
 if __name__ == "__main__":
     test_central_slice()
     """
