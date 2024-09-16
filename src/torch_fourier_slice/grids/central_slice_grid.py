@@ -1,10 +1,11 @@
 import einops
 import torch
-
+from functools import lru_cache
 from .fftfreq_grid import _construct_fftfreq_grid_2d
 from ..dft_utils import rfft_shape, fftshift_2d
 
 
+@lru_cache(1) #Alternativelly, we can have an argument that needs to be propagated to extract_central_slices_rfft_3d
 def central_slice_fftfreq_grid(
     volume_shape: tuple[int, int, int],
     rfft: bool,
