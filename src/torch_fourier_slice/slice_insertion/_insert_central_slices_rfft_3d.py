@@ -2,16 +2,36 @@ import einops
 import torch
 from torch_image_lerp import insert_into_image_3d
 
-from ..dft_utils import fftfreq_to_dft_coordinates, rfft_shape
-from ..grids.central_slice_fftfreq_grid import central_slice_fftfreq_grid
+from torch_fourier_slice.dft_utils import fftfreq_to_dft_coordinates, rfft_shape
+from torch_fourier_slice.grids.central_slice_fftfreq_grid import (
+    central_slice_fftfreq_grid,
+)
 
 
 def insert_central_slices_rfft_3d(
     image_rfft: torch.Tensor,  # fftshifted rfft of (..., h, w) 2d image
     volume_shape: tuple[int, int, int],
     rotation_matrices: torch.Tensor,
-    fftfreq_max: float | None = None
-):
+    fftfreq_max: float | None = None,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Insert central slices into a 3D DFT.
+
+    Parameters
+    ----------
+    image_rfft: torch.Tensor
+        `(..., h, w)` array of fftshifted rfft of 2D slices.
+    volume_shape: tuple[int, int, int]
+        Shape of the 3D volume into which `image_rfft` will be inserted.
+    rotation_matrices: torch.Tensor
+        `(..., 3, 3)` array of rotation matrices for insertion of `image_rfft`.
+    fftfreq_max: float | None
+        Maximum frequency (cycles per pixel) included in the projection.
+
+    Returns
+    -------
+    dft_3d: torch.Tensor
+        `(..., h, w)` array of 3D DFT of the inserted central slices.
+    """
     # generate grid of DFT sample frequencies for a central slice spanning the xy-plane
     freq_grid = central_slice_fftfreq_grid(
         volume_shape=volume_shape,
@@ -22,13 +42,17 @@ def insert_central_slices_rfft_3d(
 
     # get (b, 3, 1) array of zyx coordinates to rotate (up to fftfreq_max)
     if fftfreq_max is not None:
-        normed_grid = einops.reduce(freq_grid ** 2, 'h w zyx -> h w', reduction='sum') ** 0.5
+        normed_grid = (
+            einops.reduce(freq_grid**2, "h w zyx -> h w", reduction="sum") ** 0.5
+        )
         freq_grid_mask = normed_grid <= fftfreq_max
         valid_coords = freq_grid[freq_grid_mask, ...]  # (b, zyx)
     else:
-        freq_grid_mask = torch.ones(size=image_rfft.shape[-2:], dtype=torch.bool, device=image_rfft.device)
-        valid_coords = einops.rearrange(freq_grid, 'h w zyx -> (h w) zyx')
-    valid_coords = einops.rearrange(valid_coords, 'b zyx -> b zyx 1')
+        freq_grid_mask = torch.ones(
+            size=image_rfft.shape[-2:], dtype=torch.bool, device=image_rfft.device
+        )
+        valid_coords = einops.rearrange(freq_grid, "h w zyx -> (h w) zyx")
+    valid_coords = einops.rearrange(valid_coords, "b zyx -> b zyx 1")
 
     # get (..., b) array of data at each coordinate from image rffts
     valid_data = image_rfft[..., freq_grid_mask]
@@ -46,11 +70,11 @@ def insert_central_slices_rfft_3d(
     rotation_matrices = torch.flip(rotation_matrices, dims=(-2, -1))
 
     # add extra dim to rotation matrices for broadcasting
-    rotation_matrices = einops.rearrange(rotation_matrices, '... i j -> ... 1 i j')
+    rotation_matrices = einops.rearrange(rotation_matrices, "... i j -> ... 1 i j")
 
     # rotate all valid coordinates by each rotation matrix and remove last dim
     rotated_coordinates = einops.rearrange(
-        rotation_matrices @ valid_coords, pattern='... b zyx 1 -> ... b zyx'
+        rotation_matrices @ valid_coords, pattern="... b zyx 1 -> ... b zyx"
     )
 
     # flip coordinates in redundant half transform and take conjugate value
@@ -71,9 +95,6 @@ def insert_central_slices_rfft_3d(
 
     # insert data into 3D DFT
     dft_3d, weights = insert_into_image_3d(
-        data=valid_data,
-        coordinates=rotated_coordinates,
-        image=dft_3d,
-        weights=weights
+        data=valid_data, coordinates=rotated_coordinates, image=dft_3d, weights=weights
     )
     return dft_3d, weights
