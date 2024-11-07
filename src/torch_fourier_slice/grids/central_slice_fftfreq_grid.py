@@ -1,7 +1,7 @@
 import einops
 import torch
 
-from .fftfreq_grid import _construct_fftfreq_grid_2d
+from torch_grid_utils import fftfreq_grid
 from ..dft_utils import rfft_shape, fftshift_2d
 
 
@@ -13,7 +13,7 @@ def central_slice_fftfreq_grid(
 ) -> torch.Tensor:
     # generate 2d grid of DFT sample frequencies, shape (h, w, 2)
     h, w = volume_shape[-2:]
-    grid = _construct_fftfreq_grid_2d(
+    grid = fftfreq_grid(
         image_shape=(h, w),
         rfft=rfft,
         device=device

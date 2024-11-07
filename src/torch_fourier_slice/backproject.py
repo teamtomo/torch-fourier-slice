@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
+from torch_grid_utils import fftfreq_grid
 
-from .grids import fftfreq_grid
 from .slice_insertion import insert_central_slices_rfft_3d
 
 
