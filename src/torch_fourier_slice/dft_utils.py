@@ -1,3 +1,5 @@
+"""Utility functions for Fourier slice operations."""
+
 from typing import Sequence, Tuple
 
 import torch
@@ -11,6 +13,7 @@ def rfft_shape(input_shape: Sequence[int]) -> Tuple[int, ...]:
 
 
 def fftshift_2d(input: torch.Tensor, rfft: bool) -> torch.Tensor:
+    """Forward fftshift of a 2D tensor."""
     if rfft is False:
         output = torch.fft.fftshift(input, dim=(-2, -1))
     else:
@@ -19,6 +22,7 @@ def fftshift_2d(input: torch.Tensor, rfft: bool) -> torch.Tensor:
 
 
 def ifftshift_2d(input: torch.Tensor, rfft: bool) -> torch.Tensor:
+    """Inverse fftshift of a 2D tensor."""
     if rfft is False:
         output = torch.fft.ifftshift(input, dim=(-2, -1))
     else:
@@ -27,24 +31,38 @@ def ifftshift_2d(input: torch.Tensor, rfft: bool) -> torch.Tensor:
 
 
 def fftshift_3d(input: torch.Tensor, rfft: bool) -> torch.Tensor:
+    """Forward fftshift of a 3D tensor."""
     if rfft is False:
         output = torch.fft.fftshift(input, dim=(-3, -2, -1))
     else:
-        output = torch.fft.fftshift(input, dim=(-3, -2,))
+        output = torch.fft.fftshift(
+            input,
+            dim=(
+                -3,
+                -2,
+            ),
+        )
     return output
 
 
 def ifftshift_3d(input: torch.Tensor, rfft: bool) -> torch.Tensor:
+    """Inverse fftshift of a 3D tensor."""
     if rfft is False:
         output = torch.fft.ifftshift(input, dim=(-3, -2, -1))
     else:
-        output = torch.fft.ifftshift(input, dim=(-3, -2,))
+        output = torch.fft.ifftshift(
+            input,
+            dim=(
+                -3,
+                -2,
+            ),
+        )
     return output
 
 
 def fftfreq_to_dft_coordinates(
     frequencies: torch.Tensor, image_shape: tuple[int, ...], rfft: bool
-):
+) -> torch.Tensor:
     """Convert DFT sample frequencies into array coordinates in a fftshifted DFT.
 
     Parameters
@@ -90,7 +108,7 @@ def dft_center(
     if rfft is True:
         image_shape = torch.tensor(rfft_shape(image_shape))
     if fftshifted is True:
-        fft_center = torch.divide(image_shape, 2, rounding_mode='floor')
+        fft_center = torch.divide(image_shape, 2, rounding_mode="floor")
     if rfft is True:
         fft_center[-1] = 0
     return fft_center.long()

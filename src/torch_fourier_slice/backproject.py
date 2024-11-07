@@ -1,8 +1,12 @@
+"""Module for 2D to 3D backprojection operations using Fourier slice theorem."""
+
 import torch
 import torch.nn.functional as F
 from torch_grid_utils import fftfreq_grid
 
-from .slice_insertion import insert_central_slices_rfft_3d
+from torch_fourier_slice.slice_insertion._insert_central_slices_rfft_3d import (
+    insert_central_slices_rfft_3d,
+)
 
 
 def backproject_2d_to_3d(
@@ -10,7 +14,7 @@ def backproject_2d_to_3d(
     rotation_matrices: torch.Tensor,  # (b, 3, 3)
     pad: bool = True,
     fftfreq_max: float | None = None,
-):
+) -> torch.Tensor:
     """Perform a 3D reconstruction from a set of 2D projection images.
 
     Parameters
@@ -32,7 +36,7 @@ def backproject_2d_to_3d(
     """
     b, h, w = images.shape
     if h != w:
-        raise ValueError('images must be square.')
+        raise ValueError("images must be square.")
     if pad is True:
         p = images.shape[-1] // 4
         images = F.pad(images, pad=[p] * 4)
@@ -51,7 +55,7 @@ def backproject_2d_to_3d(
         image_rfft=images,
         volume_shape=volume_shape,
         rotation_matrices=rotation_matrices,
-        fftfreq_max=fftfreq_max
+        fftfreq_max=fftfreq_max,
     )
 
     # reweight reconstruction
@@ -59,17 +63,19 @@ def backproject_2d_to_3d(
     dft[valid_weights] /= weights[valid_weights]
 
     # back to real space
-    dft = torch.fft.ifftshift(dft, dim=(-3, -2,))  # actual ifftshift
+    dft = torch.fft.ifftshift(
+        dft,
+        dim=(
+            -3,
+            -2,
+        ),
+    )  # actual ifftshift
     dft = torch.fft.irfftn(dft, dim=(-3, -2, -1))
     dft = torch.fft.ifftshift(dft, dim=(-3, -2, -1))  # center in real space
 
     # correct for convolution with linear interpolation kernel
     grid = fftfreq_grid(
-        image_shape=dft.shape,
-        rfft=False,
-        fftshift=True,
-        norm=True,
-        device=dft.device
+        image_shape=dft.shape, rfft=False, fftshift=True, norm=True, device=dft.device
     )
     dft = dft / torch.sinc(grid) ** 2
 
