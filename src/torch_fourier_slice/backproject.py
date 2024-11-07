@@ -63,13 +63,7 @@ def backproject_2d_to_3d(
     dft[valid_weights] /= weights[valid_weights]
 
     # back to real space
-    dft = torch.fft.ifftshift(
-        dft,
-        dim=(
-            -3,
-            -2,
-        ),
-    )  # actual ifftshift
+    dft = torch.fft.ifftshift(dft, dim=(-3, -2,))  # actual ifftshift
     dft = torch.fft.irfftn(dft, dim=(-3, -2, -1))
     dft = torch.fft.ifftshift(dft, dim=(-3, -2, -1))  # center in real space
 
