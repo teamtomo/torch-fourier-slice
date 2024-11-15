@@ -9,7 +9,7 @@ except PackageNotFoundError:
 __author__ = "Alister Burt"
 __email__ = "alisterburt@gmail.com"
 
-from .project import project_3d_to_2d
+from .project import project_3d_to_2d, project_2d_to_1d
 from .backproject import backproject_2d_to_3d
 from .slice_insertion import insert_central_slices_rfft_3d
 from .slice_extraction import extract_central_slices_rfft_3d

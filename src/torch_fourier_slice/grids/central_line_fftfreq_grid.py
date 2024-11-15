@@ -11,7 +11,7 @@ def central_line_fftfreq_grid(
     device: torch.device | None = None,
 ) -> torch.Tensor:
     # generate 1d grid of DFT sample frequencies, shape (w, 1)
-    w = image_shape[-1:]
+    w, = image_shape[-1:]
     grid = (
         torch.fft.rfftfreq(w, device=device)
         if rfft
