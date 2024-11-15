@@ -38,7 +38,13 @@ def fftshift_3d(input: torch.Tensor, rfft: bool) -> torch.Tensor:
     if rfft is False:
         output = torch.fft.fftshift(input, dim=(-3, -2, -1))
     else:
-        output = torch.fft.fftshift(input, dim=(-3, -2,))
+        output = torch.fft.fftshift(
+            input,
+            dim=(
+                -3,
+                -2,
+            ),
+        )
     return output
 
 
@@ -46,7 +52,13 @@ def ifftshift_3d(input: torch.Tensor, rfft: bool) -> torch.Tensor:
     if rfft is False:
         output = torch.fft.ifftshift(input, dim=(-3, -2, -1))
     else:
-        output = torch.fft.ifftshift(input, dim=(-3, -2,))
+        output = torch.fft.ifftshift(
+            input,
+            dim=(
+                -3,
+                -2,
+            ),
+        )
     return output
 
 
@@ -98,7 +110,7 @@ def dft_center(
     if rfft is True:
         image_shape = torch.tensor(rfft_shape(image_shape))
     if fftshifted is True:
-        fft_center = torch.divide(image_shape, 2, rounding_mode='floor')
+        fft_center = torch.divide(image_shape, 2, rounding_mode="floor")
     if rfft is True:
         fft_center[-1] = 0
     return fft_center.long()

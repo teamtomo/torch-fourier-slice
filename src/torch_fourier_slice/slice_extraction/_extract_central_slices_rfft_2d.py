@@ -1,9 +1,9 @@
-import torch
 import einops
+import torch
 from torch_image_lerp import sample_image_2d
 
 from ..dft_utils import fftfreq_to_dft_coordinates
-from ..grids.central_slice_fftfreq_grid import central_line_fftfreq_grid
+from ..grids.central_line_fftfreq_grid import central_line_fftfreq_grid
 
 
 def extract_central_slices_rfft_2d(
@@ -28,12 +28,12 @@ def extract_central_slices_rfft_2d(
 
     # get (b, 2, 1) array of yx coordinates to rotate
     if fftfreq_max is not None:
-        normed_grid = einops.reduce(freq_grid ** 2, 'w yx -> w', reduction='sum') ** 0.5
+        normed_grid = einops.reduce(freq_grid**2, "w yx -> w", reduction="sum") ** 0.5
         freq_grid_mask = normed_grid <= fftfreq_max
         valid_coords = freq_grid[freq_grid_mask, ...]  # (b, yx)
     else:
-        valid_coords = einops.rearrange(freq_grid, 'w yx -> (w) yx')
-    valid_coords = einops.rearrange(valid_coords, 'b yx -> b yx 1')
+        valid_coords = einops.rearrange(freq_grid, "w yx -> (w) yx")
+    valid_coords = einops.rearrange(valid_coords, "b yx -> b yx 1")
 
     # rotation matrices rotate xyz coordinates, make them rotate zyx coordinates
     # xyz:
@@ -48,13 +48,13 @@ def extract_central_slices_rfft_2d(
     rotation_matrices = torch.flip(rotation_matrices, dims=(-2, -1))
 
     # add extra dim to rotation matrices for broadcasting
-    rotation_matrices = einops.rearrange(rotation_matrices, '... i j -> ... 1 i j')
+    rotation_matrices = einops.rearrange(rotation_matrices, "... i j -> ... 1 i j")
 
     # rotate all valid coordinates by each rotation matrix
     rotated_coords = rotation_matrices @ valid_coords  # (..., b, yx, 1)
 
     # remove last dim of size 1
-    rotated_coords = einops.rearrange(rotated_coords, '... b yx 1 -> ... b yx')
+    rotated_coords = einops.rearrange(rotated_coords, "... b yx 1 -> ... b yx")
 
     # flip coordinates that ended up in redundant half transform after rotation
     conjugate_mask = rotated_coords[..., 2] < 0
@@ -62,9 +62,7 @@ def extract_central_slices_rfft_2d(
 
     # convert frequencies to array coordinates in fftshifted DFT
     rotated_coords = fftfreq_to_dft_coordinates(
-        frequencies=rotated_coords,
-        image_shape=image_shape,
-        rfft=True
+        frequencies=rotated_coords, image_shape=image_shape, rfft=True
     )  # (...) rfft
     samples = sample_image_2d(image=image_rfft, coordinates=rotated_coords)
 
@@ -72,11 +70,13 @@ def extract_central_slices_rfft_2d(
     samples[conjugate_mask] = torch.conj(samples[conjugate_mask])
 
     # insert samples back into DFTs
-    projection_image_dfts = torch.zeros(output_shape, device=image_rfft.device,
-                                        dtype=image_rfft.dtype)
+    projection_image_dfts = torch.zeros(
+        output_shape, device=image_rfft.device, dtype=image_rfft.dtype
+    )
     if fftfreq_max is None:
-        freq_grid_mask = torch.ones(size=rfft_shape, dtype=torch.bool,
-                                    device=image_rfft.device)
+        freq_grid_mask = torch.ones(
+            size=rfft_shape, dtype=torch.bool, device=image_rfft.device
+        )
 
     projection_image_dfts[..., freq_grid_mask] = samples
 
