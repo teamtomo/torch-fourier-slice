@@ -6,7 +6,7 @@ from ..dft_utils import fftfreq_to_dft_coordinates
 from ..grids.central_line_fftfreq_grid import central_line_fftfreq_grid
 
 
-def extract_central_lines_rfft_2d(
+def extract_central_slices_rfft_2d(
     image_rfft: torch.Tensor,
     image_shape: tuple[int, int],
     rotation_matrices: torch.Tensor,  # (..., 2, 2)

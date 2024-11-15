@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 from torch_grid_utils import fftfreq_grid
 
-from .slice_extraction import extract_central_lines_rfft_2d, extract_central_slices_rfft_3d
+from .slice_extraction import extract_central_slices_rfft_2d, extract_central_slices_rfft_3d
 
 
 def project_3d_to_2d(
@@ -115,7 +115,7 @@ def project_2d_to_1d(
     dft = torch.fft.fftshift(dft, dim=(-2,))  # actual fftshift of 2D rfft
 
     # make projections by taking central slices
-    projections = extract_central_lines_rfft_2d(
+    projections = extract_central_slices_rfft_2d(
         image_rfft=dft,
         image_shape=image.shape,
         rotation_matrices=rotation_matrices,
