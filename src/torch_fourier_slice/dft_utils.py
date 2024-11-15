@@ -38,7 +38,7 @@ def fftshift_3d(input: torch.Tensor, rfft: bool) -> torch.Tensor:
     if rfft is False:
         output = torch.fft.fftshift(input, dim=(-3, -2, -1))
     else:
-        output = torch.fft.fftshift(input, dim=(-3,-2,))
+        output = torch.fft.fftshift(input, dim=(-3, -2,))
     return output
 
 
