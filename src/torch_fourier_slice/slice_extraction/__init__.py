@@ -1,1 +1,2 @@
 from ._extract_central_slices_rfft_3d import extract_central_slices_rfft_3d
+from ._extract_central_slices_rfft_2d import extract_central_slices_rfft_2d

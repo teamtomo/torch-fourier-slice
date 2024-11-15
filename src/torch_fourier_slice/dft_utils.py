@@ -10,6 +10,14 @@ def rfft_shape(input_shape: Sequence[int]) -> Tuple[int, ...]:
     return tuple(rfft_shape)
 
 
+def fftshift_1d(input: torch.Tensor, rfft: bool) -> torch.Tensor:
+    if rfft is False:
+        output = torch.fft.fftshift(input, dim=(-1))
+    else:
+        output = input
+    return output
+
+
 def fftshift_2d(input: torch.Tensor, rfft: bool) -> torch.Tensor:
     if rfft is False:
         output = torch.fft.fftshift(input, dim=(-2, -1))
