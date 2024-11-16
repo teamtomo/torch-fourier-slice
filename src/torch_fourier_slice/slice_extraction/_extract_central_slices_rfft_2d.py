@@ -28,11 +28,10 @@ def extract_central_slices_rfft_2d(
 
     # get (b, 2, 1) array of yx coordinates to rotate
     if fftfreq_max is not None:
-        normed_grid = einops.reduce(freq_grid**2, "w yx -> w", reduction="sum") ** 0.5
-        freq_grid_mask = normed_grid <= fftfreq_max
-        valid_coords = freq_grid[freq_grid_mask, ...]  # (b, yx)
+        freq_grid_mask = freq_grid <= fftfreq_max
+        valid_coords = freq_grid[freq_grid_mask, ...]
     else:
-        valid_coords = einops.rearrange(freq_grid, "w yx -> (w) yx")
+        valid_coords = freq_grid
     valid_coords = einops.rearrange(valid_coords, "b yx -> b yx 1")
 
     # rotation matrices rotate xyz coordinates, make them rotate zyx coordinates
