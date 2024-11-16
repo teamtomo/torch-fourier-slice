@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from torch_fourier_slice import project_3d_to_2d, backproject_2d_to_3d
+from torch_fourier_slice import project_3d_to_2d, project_2d_to_1d, backproject_2d_to_3d
 from torch_fourier_shell_correlation import fsc
 from scipy.stats import special_ortho_group
 
@@ -23,6 +23,24 @@ def test_project_3d_to_2d_rotation_center():
         max = torch.argmax(image)
         i, j = divmod(max.item(), 32)
         assert (i, j) == (16, 16)
+
+
+def test_project_2d_to_1d_rotation_center():
+    # rotation center should be at position of DC in DFT
+    image = torch.zeros((32, 32))
+    image[16, 16] = 1
+
+    # make projections
+    rotation_matrices = torch.tensor(special_ortho_group.rvs(dim=2, size=100)).float()
+    projections = project_2d_to_1d(
+        image=image,
+        rotation_matrices=rotation_matrices,
+    )
+
+    # check max is always at (16), implying point (16) never moves
+    for image in projections:
+        i = torch.argmax(image)
+        assert i == 16
 
 
 def test_3d_2d_projection_backprojection_cycle(cube):

@@ -10,6 +10,14 @@ def rfft_shape(input_shape: Sequence[int]) -> Tuple[int, ...]:
     return tuple(rfft_shape)
 
 
+def fftshift_1d(input: torch.Tensor, rfft: bool) -> torch.Tensor:
+    if rfft is False:
+        output = torch.fft.fftshift(input, dim=(-1))
+    else:
+        output = input
+    return output
+
+
 def fftshift_2d(input: torch.Tensor, rfft: bool) -> torch.Tensor:
     if rfft is False:
         output = torch.fft.fftshift(input, dim=(-2, -1))
@@ -88,9 +96,9 @@ def dft_center(
     fft_center = torch.zeros(size=(len(image_shape),), device=device)
     image_shape = torch.as_tensor(image_shape).float()
     if rfft is True:
-        image_shape = torch.tensor(rfft_shape(image_shape))
+        image_shape = torch.tensor(rfft_shape(image_shape), device=device)
     if fftshifted is True:
-        fft_center = torch.divide(image_shape, 2, rounding_mode='floor')
+        fft_center = torch.divide(image_shape, 2, rounding_mode="floor")
     if rfft is True:
         fft_center[-1] = 0
     return fft_center.long()
