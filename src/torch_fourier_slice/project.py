@@ -75,15 +75,15 @@ def project_2d_to_1d(
     pad: bool = True,
     fftfreq_max: float | None = None,
 ) -> torch.Tensor:
-    """Project a cubic volume by sampling a central slice through its DFT.
+    """Project a square image by sampling a central line through its DFT.
 
     Parameters
     ----------
     image: torch.Tensor
-        `(d, d)` volume.
+        `(d, d)` image.
     rotation_matrices: torch.Tensor
-        `(..., 2, 2)` array of rotation matrices for insertion of `images`.
-        Rotation matrices left-multiply column vectors containing xyz coordinates.
+        `(..., 2, 2)` array of rotation matrices for extraction of `lines`.
+        Rotation matrices left-multiply column vectors containing xy coordinates.
     pad: bool
         Whether to pad the volume 2x with zeros to increase sampling rate in the DFT.
     fftfreq_max: float | None
@@ -92,7 +92,7 @@ def project_2d_to_1d(
     Returns
     -------
     projections: torch.Tensor
-        `(..., d)` array of projection images.
+        `(..., d)` array of projected lines.
     """
     # padding
     if pad is True:
@@ -110,7 +110,7 @@ def project_2d_to_1d(
     image = image * torch.sinc(grid) ** 2
 
     # calculate DFT
-    dft = torch.fft.fftshift(image, dim=(-2, -1))  # volume center to array origin
+    dft = torch.fft.fftshift(image, dim=(-2, -1))  # image center to array origin
     dft = torch.fft.rfftn(dft, dim=(-2, -1))
     dft = torch.fft.fftshift(dft, dim=(-2,))  # actual fftshift of 2D rfft
 
@@ -120,12 +120,12 @@ def project_2d_to_1d(
         image_shape=image.shape,
         rotation_matrices=rotation_matrices,
         fftfreq_max=fftfreq_max
-    )  # (..., h, w) rfft stack
+    )  # (..., w) rfft stack
 
     # transform back to real space
-    # projections = torch.fft.ifftshift(projections, dim=(-2,))  Not needed for 1D
+    # not needed for 1D: torch.fft.ifftshift(projections, dim=(-2,))
     projections = torch.fft.irfftn(projections, dim=(-1))
-    projections = torch.fft.ifftshift(projections, dim=(-1))  # recenter 2D image in real space
+    projections = torch.fft.ifftshift(projections, dim=(-1))  # recenter line in real space
 
     # unpad if required
     if pad is True:
