@@ -1,6 +1,6 @@
 import einops
 import torch
-from torch_image_lerp import sample_image_2d
+from torch_image_interpolation import sample_image_2d
 
 from ..dft_utils import fftfreq_to_dft_coordinates
 from ..grids.central_line_fftfreq_grid import central_line_fftfreq_grid
@@ -63,7 +63,9 @@ def extract_central_slices_rfft_2d(
     rotated_coords = fftfreq_to_dft_coordinates(
         frequencies=rotated_coords, image_shape=image_shape, rfft=True
     )  # (...) rfft
-    samples = sample_image_2d(image=image_rfft, coordinates=rotated_coords)
+    samples = sample_image_2d(
+        image=image_rfft, coordinates=rotated_coords, interpolation='bilinear'
+    )
 
     # take complex conjugate of values from redundant half transform
     samples[conjugate_mask] = torch.conj(samples[conjugate_mask])
