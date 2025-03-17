@@ -71,7 +71,7 @@ def insert_central_slices_rfft_3d(
 
     # insert data into 3D DFT
     dft_3d, weights = insert_into_image_3d(
-        data=valid_data,
+        values=valid_data,
         coordinates=rotated_coordinates,
         image=dft_3d,
         weights=weights,
