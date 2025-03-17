@@ -1,6 +1,6 @@
 import torch
 import einops
-from torch_image_lerp import sample_image_3d
+from torch_image_interpolation import sample_image_3d
 
 from ..dft_utils import fftfreq_to_dft_coordinates
 from ..grids.central_slice_fftfreq_grid import central_slice_fftfreq_grid
@@ -66,7 +66,9 @@ def extract_central_slices_rfft_3d(
         image_shape=image_shape,
         rfft=True
     )
-    samples = sample_image_3d(image=volume_rfft, coordinates=rotated_coords)  # (...) rfft
+    samples = sample_image_3d(
+        image=volume_rfft, coordinates=rotated_coords, interpolation='trilinear'
+    )  # (...) rfft
 
     # take complex conjugate of values from redundant half transform
     samples[conjugate_mask] = torch.conj(samples[conjugate_mask])

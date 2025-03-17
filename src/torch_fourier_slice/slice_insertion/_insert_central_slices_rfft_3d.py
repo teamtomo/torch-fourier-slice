@@ -1,6 +1,6 @@
 import einops
 import torch
-from torch_image_lerp import insert_into_image_3d
+from torch_image_interpolation import insert_into_image_3d
 
 from ..dft_utils import fftfreq_to_dft_coordinates, rfft_shape
 from ..grids.central_slice_fftfreq_grid import central_slice_fftfreq_grid
@@ -71,9 +71,10 @@ def insert_central_slices_rfft_3d(
 
     # insert data into 3D DFT
     dft_3d, weights = insert_into_image_3d(
-        data=valid_data,
+        values=valid_data,
         coordinates=rotated_coordinates,
         image=dft_3d,
-        weights=weights
+        weights=weights,
+        interpolation='trilinear',
     )
     return dft_3d, weights

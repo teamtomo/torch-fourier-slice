@@ -37,7 +37,7 @@ dependencies = [
     "torch",
     "numpy",
     "einops",
-    "torch_image_lerp",
+    "torch_image_interpolation>=0.0.6",
     "torch_grid_utils",
 ]
 
