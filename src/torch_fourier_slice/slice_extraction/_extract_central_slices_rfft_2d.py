@@ -11,6 +11,7 @@ def extract_central_slices_rfft_2d(
     image_shape: tuple[int, int],
     rotation_matrices: torch.Tensor,  # (..., 2, 2)
     fftfreq_max: float | None = None,
+    yx_matrix_order: bool = False,
 ) -> torch.Tensor:
     """Extract central slice from an fftshifted rfft."""
     # generate grid of DFT sample frequencies for a central slice spanning the x-plane
@@ -35,16 +36,15 @@ def extract_central_slices_rfft_2d(
     valid_coords = einops.rearrange(valid_coords, "b yx -> b yx 1")
 
     # rotation matrices rotate xyz coordinates, make them rotate zyx coordinates
-    # xyz:
-    # [a b c] [x]    [ax + by + cz]
-    # [d e f] [y]  = [dx + ey + fz]
-    # [g h i] [z]    [gx + hy + iz]
+    # xy:
+    # [a b] [x]    [ax + by]
+    # [d e] [y]  = [dx + ey]
     #
-    # zyx:
-    # [i h g] [z]    [gx + hy + iz]
-    # [f e d] [y]  = [dx + ey + fz]
-    # [c b a] [x]    [ax + by + cz]
-    rotation_matrices = torch.flip(rotation_matrices, dims=(-2, -1))
+    # yx:
+    # [e d] [y]  = [dx + ey]
+    # [b a] [x]    [ax + by]
+    if not yx_matrix_order:
+        rotation_matrices = torch.flip(rotation_matrices, dims=(-2, -1))
 
     # add extra dim to rotation matrices for broadcasting
     rotation_matrices = einops.rearrange(rotation_matrices, "... i j -> ... 1 i j")
