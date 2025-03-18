@@ -11,7 +11,7 @@ def insert_central_slices_rfft_3d(
     volume_shape: tuple[int, int, int],
     rotation_matrices: torch.Tensor,
     fftfreq_max: float | None = None,
-    zyx_matrix_order: bool = False,
+    zyx_matrices: bool = False,
 ):
     # generate grid of DFT sample frequencies for a central slice spanning the xy-plane
     freq_grid = central_slice_fftfreq_grid(
@@ -44,7 +44,7 @@ def insert_central_slices_rfft_3d(
     # [i h g] [z]    [gx + hy + iz]
     # [f e d] [y]  = [dx + ey + fz]
     # [c b a] [x]    [ax + by + cz]
-    if not zyx_matrix_order:
+    if not zyx_matrices:
         rotation_matrices = torch.flip(rotation_matrices, dims=(-2, -1))
 
     # add extra dim to rotation matrices for broadcasting

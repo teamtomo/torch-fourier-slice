@@ -10,7 +10,7 @@ def backproject_2d_to_3d(
     rotation_matrices: torch.Tensor,  # (b, 3, 3)
     pad: bool = True,
     fftfreq_max: float | None = None,
-    zyx_matrix_order: bool = False,
+    zyx_matrices: bool = False,
 ):
     """Perform a 3D reconstruction from a set of 2D projection images.
 
@@ -25,8 +25,9 @@ def backproject_2d_to_3d(
         Whether to pad the input images 2x (`True`) or not (`False`).
     fftfreq_max: float | None
         Maximum frequency (cycles per pixel) included in the projection.
-    zyx_matrix_order: bool
-        Set to True if the provided matrices operate on zyx coordinates instead of xyz.
+    zyx_matrices: bool
+        Set to True if the provided matrices left multiply zyx column vectors
+        instead of xyz column vectors.
 
     Returns
     -------
@@ -55,7 +56,7 @@ def backproject_2d_to_3d(
         volume_shape=volume_shape,
         rotation_matrices=rotation_matrices,
         fftfreq_max=fftfreq_max,
-        zyx_matrix_order=zyx_matrix_order,
+        zyx_matrices=zyx_matrices,
     )
 
     # reweight reconstruction

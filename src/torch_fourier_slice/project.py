@@ -10,7 +10,7 @@ def project_3d_to_2d(
     rotation_matrices: torch.Tensor,
     pad: bool = True,
     fftfreq_max: float | None = None,
-    zyx_matrix_order: bool = False,
+    zyx_matrices: bool = False,
 ) -> torch.Tensor:
     """Project a cubic volume by sampling a central slice through its DFT.
 
@@ -25,8 +25,9 @@ def project_3d_to_2d(
         Whether to pad the volume 2x with zeros to increase sampling rate in the DFT.
     fftfreq_max: float | None
         Maximum frequency (cycles per pixel) included in the projection.
-    zyx_matrix_order: bool
-        Set to True if the provided matrices operate on zyx coordinates instead of xyz.
+    zyx_matrices: bool
+        Set to True if the provided matrices left multiply zyx column vectors
+        instead of xyz column vectors.
 
     Returns
     -------
@@ -59,7 +60,7 @@ def project_3d_to_2d(
         image_shape=volume.shape,
         rotation_matrices=rotation_matrices,
         fftfreq_max=fftfreq_max,
-        zyx_matrix_order=zyx_matrix_order,
+        zyx_matrices=zyx_matrices,
     )  # (..., h, w) rfft stack
 
     # transform back to real space
@@ -127,7 +128,7 @@ def project_2d_to_1d(
         image_shape=image.shape,
         rotation_matrices=rotation_matrices,
         fftfreq_max=fftfreq_max,
-        yx_matrix_order=yx_matrix_order,
+        yx_matrices=yx_matrix_order,
     )  # (..., w) rfft stack
 
     # transform back to real space

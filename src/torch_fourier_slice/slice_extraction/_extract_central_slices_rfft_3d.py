@@ -11,7 +11,7 @@ def extract_central_slices_rfft_3d(
     image_shape: tuple[int, int, int],
     rotation_matrices: torch.Tensor,  # (..., 3, 3)
     fftfreq_max: float | None = None,
-    zyx_matrix_order: bool = False,
+    zyx_matrices: bool = False,
 ):
     """Extract central slice from an fftshifted rfft."""
     # generate grid of DFT sample frequencies for a central slice spanning the xy-plane
@@ -33,20 +33,21 @@ def extract_central_slices_rfft_3d(
         freq_grid_mask = normed_grid <= fftfreq_max
         valid_coords = freq_grid[freq_grid_mask, ...]  # (b, zyx)
     else:
+        freq_grid_mask = torch.ones(size=rfft_shape, dtype=torch.bool, device=volume_rfft.device)
         valid_coords = einops.rearrange(freq_grid, 'h w zyx -> (h w) zyx')
     valid_coords = einops.rearrange(valid_coords, 'b zyx -> b zyx 1')
 
     # rotation matrices rotate xyz coordinates, make them rotate zyx coordinates
     # xyz:
-    # [a b c] [x]    [ax + by + cz]
-    # [d e f] [y]  = [dx + ey + fz]
-    # [g h i] [z]    [gx + hy + iz]
+    # [a b c] [x]   [ax + by + cz]   [x']
+    # [d e f] [y]   [dx + ey + fz]   [y']
+    # [g h i] [z] = [gx + hy + iz] = [z']
     #
     # zyx:
-    # [i h g] [z]    [gx + hy + iz]
-    # [f e d] [y]  = [dx + ey + fz]
-    # [c b a] [x]    [ax + by + cz]
-    if not zyx_matrix_order:
+    # [i h g] [z]   [gx + hy + iz]   [z']
+    # [f e d] [y]   [dx + ey + fz]   [y']
+    # [c b a] [x] = [ax + by + cz] = [x']
+    if not zyx_matrices:
         rotation_matrices = torch.flip(rotation_matrices, dims=(-2, -1))
 
     # add extra dim to rotation matrices for broadcasting
@@ -77,9 +78,6 @@ def extract_central_slices_rfft_3d(
 
     # insert samples back into DFTs
     projection_image_dfts = torch.zeros(output_shape, device=volume_rfft.device, dtype=volume_rfft.dtype)
-    if fftfreq_max is None:
-        freq_grid_mask = torch.ones(size=rfft_shape, dtype=torch.bool, device=volume_rfft.device)
-
     projection_image_dfts[..., freq_grid_mask] = samples
 
     return projection_image_dfts
