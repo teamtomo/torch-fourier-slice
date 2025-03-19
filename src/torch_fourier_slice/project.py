@@ -94,8 +94,9 @@ def project_2d_to_1d(
         Whether to pad the volume 2x with zeros to increase sampling rate in the DFT.
     fftfreq_max: float | None
         Maximum frequency (cycles per pixel) included in the projection.
-    yx_matrix_order: bool
-        Set to True if the provided matrices operate on yx coordinates instead of xy.
+    yx_matrices: bool
+        Set to True if the provided matrices left multiply yx column vectors
+        instead of xy column vectors.
 
     Returns
     -------
