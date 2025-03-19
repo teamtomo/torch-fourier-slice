@@ -79,7 +79,7 @@ def project_2d_to_1d(
     rotation_matrices: torch.Tensor,
     pad: bool = True,
     fftfreq_max: float | None = None,
-    yx_matrix_order: bool = False,
+    yx_matrices: bool = False,
 ) -> torch.Tensor:
     """Project a square image by sampling a central line through its DFT.
 
@@ -128,7 +128,7 @@ def project_2d_to_1d(
         image_shape=image.shape,
         rotation_matrices=rotation_matrices,
         fftfreq_max=fftfreq_max,
-        yx_matrices=yx_matrix_order,
+        yx_matrices=yx_matrices,
     )  # (..., w) rfft stack
 
     # transform back to real space
