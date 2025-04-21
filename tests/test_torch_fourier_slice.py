@@ -1,9 +1,9 @@
 import pytest
 import torch
-
-from torch_fourier_slice import project_3d_to_2d, project_2d_to_1d, backproject_2d_to_3d
-from torch_fourier_shell_correlation import fsc
 from scipy.stats import special_ortho_group
+from torch_fourier_shell_correlation import fsc
+
+from torch_fourier_slice import backproject_2d_to_3d, project_2d_to_1d, project_3d_to_2d
 
 
 def test_project_3d_to_2d_rotation_center():
@@ -20,8 +20,8 @@ def test_project_3d_to_2d_rotation_center():
 
     # check max is always at (16, 16), implying point (16, 16) never moves
     for image in projections:
-        max = torch.argmax(image)
-        i, j = divmod(max.item(), 32)
+        max_idx = torch.argmax(image)
+        i, j = divmod(max_idx.item(), 32)
         assert (i, j) == (16, 16)
 
 
@@ -68,9 +68,9 @@ def test_3d_2d_projection_backprojection_cycle(cube):
     [
         (
             torch.rand((10, 28, 28)).float(),
-            torch.tensor(special_ortho_group.rvs(dim=3, size=10)).float()
+            torch.tensor(special_ortho_group.rvs(dim=3, size=10)).float(),
         ),
-    ]
+    ],
 )
 def test_dtypes_slice_insertion(images, rotation_matrices):
     result = backproject_2d_to_3d(images, rotation_matrices)
