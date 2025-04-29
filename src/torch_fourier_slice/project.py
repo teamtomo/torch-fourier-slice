@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 from torch_grid_utils import fftfreq_grid
 
-from torch_fourier_slice import (
+from .slice_extraction import (
     extract_central_slices_rfft_2d,
     extract_central_slices_rfft_3d,
 )
@@ -53,15 +53,11 @@ def project_3d_to_2d(
     volume = volume * torch.sinc(grid) ** 2
 
     # calculate DFT
-    dft = torch.fft.fftshift(volume, dim=(-3, -2, -1))  # volume center to array origin
+    # volume center to array origin
+    dft = torch.fft.fftshift(volume, dim=(-3, -2, -1))
     dft = torch.fft.rfftn(dft, dim=(-3, -2, -1))
-    dft = torch.fft.fftshift(
-        dft,
-        dim=(
-            -3,
-            -2,
-        ),
-    )  # actual fftshift of 3D rfft
+    # actual fftshift of 3D rfft
+    dft = torch.fft.fftshift(dft, dim=(-3, -2))
 
     # make projections by taking central slices
     projections = extract_central_slices_rfft_3d(
