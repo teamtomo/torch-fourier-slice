@@ -2,8 +2,8 @@ import einops
 import torch
 from torch_image_interpolation import sample_image_2d
 
-from ..dft_utils import fftfreq_to_dft_coordinates
-from ..grids.central_line_fftfreq_grid import central_line_fftfreq_grid
+from .._dft_utils import _fftfreq_to_dft_coordinates
+from .._grids import _central_line_fftfreq_grid
 
 
 def extract_central_slices_rfft_2d(
@@ -15,7 +15,7 @@ def extract_central_slices_rfft_2d(
 ) -> torch.Tensor:
     """Extract central slice from an fftshifted rfft."""
     # generate grid of DFT sample frequencies for a central slice spanning the x-plane
-    freq_grid = central_line_fftfreq_grid(
+    freq_grid = _central_line_fftfreq_grid(
         image_shape=image_shape,
         rfft=True,
         fftshift=True,
@@ -32,7 +32,9 @@ def extract_central_slices_rfft_2d(
         freq_grid_mask = freq_grid <= fftfreq_max
         valid_coords = freq_grid[freq_grid_mask, ...]
     else:
-        freq_grid_mask = torch.ones(size=rfft_shape, dtype=torch.bool, device=image_rfft.device)
+        freq_grid_mask = torch.ones(
+            size=rfft_shape, dtype=torch.bool, device=image_rfft.device
+        )
         valid_coords = freq_grid
     valid_coords = einops.rearrange(valid_coords, "b yx -> b yx 1")
 
@@ -61,11 +63,11 @@ def extract_central_slices_rfft_2d(
     rotated_coords[conjugate_mask, ...] *= -1
 
     # convert frequencies to array coordinates in fftshifted DFT
-    rotated_coords = fftfreq_to_dft_coordinates(
+    rotated_coords = _fftfreq_to_dft_coordinates(
         frequencies=rotated_coords, image_shape=image_shape, rfft=True
     )  # (...) rfft
     samples = sample_image_2d(
-        image=image_rfft, coordinates=rotated_coords, interpolation='bilinear'
+        image=image_rfft, coordinates=rotated_coords, interpolation="bilinear"
     )
 
     # take complex conjugate of values from redundant half transform
