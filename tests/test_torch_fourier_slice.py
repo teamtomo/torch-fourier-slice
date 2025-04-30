@@ -3,7 +3,12 @@ import torch
 from scipy.stats import special_ortho_group
 from torch_fourier_shell_correlation import fsc
 
-from torch_fourier_slice import backproject_2d_to_3d, project_2d_to_1d, project_3d_to_2d
+from torch_fourier_slice import (
+    backproject_2d_to_3d,
+    backproject_2d_to_3d_batched,
+    project_2d_to_1d,
+    project_3d_to_2d,
+)
 
 
 def test_project_3d_to_2d_rotation_center():
@@ -12,7 +17,7 @@ def test_project_3d_to_2d_rotation_center():
     volume[16, 16, 16] = 1
 
     # make projections
-    rotation_matrices = torch.tensor(special_ortho_group.rvs(dim=3, size=100)).float()
+    rotation_matrices = torch.tensor(special_ortho_group.rvs(dim=3, size=100))
     projections = project_3d_to_2d(
         volume=volume,
         rotation_matrices=rotation_matrices,
@@ -31,7 +36,7 @@ def test_project_2d_to_1d_rotation_center():
     image[16, 16] = 1
 
     # make projections
-    rotation_matrices = torch.tensor(special_ortho_group.rvs(dim=2, size=100)).float()
+    rotation_matrices = torch.tensor(special_ortho_group.rvs(dim=2, size=100))
     projections = project_2d_to_1d(
         image=image,
         rotation_matrices=rotation_matrices,
@@ -45,7 +50,7 @@ def test_project_2d_to_1d_rotation_center():
 
 def test_3d_2d_projection_backprojection_cycle(cube):
     # make projections
-    rotation_matrices = torch.tensor(special_ortho_group.rvs(dim=3, size=1500)).float()
+    rotation_matrices = torch.tensor(special_ortho_group.rvs(dim=3, size=1500))
     projections = project_3d_to_2d(
         volume=cube,
         rotation_matrices=rotation_matrices,
@@ -81,6 +86,18 @@ def test_3d_2d_projection_backprojection_cycle_leading_dims(cube):
     )
 
     assert volume.shape == (size,) * 3
+
+
+def test_backproject_3d_to_2d_batched():
+    # a batch of 4 sub tilt-series with 20 tilts each at the same rotations
+    images = torch.rand((4, 20, 10, 10))  # (b, n, h, w)
+    # a rotation matrix for each tilt -> (n, 3, 3)
+    rotation_matrices = torch.tensor(special_ortho_group.rvs(dim=3, size=20))
+
+    # run batched back projection
+    result = backproject_2d_to_3d_batched(images, rotation_matrices)
+
+    assert result.shape == (4, 10, 10, 10)
 
 
 @pytest.mark.parametrize(
