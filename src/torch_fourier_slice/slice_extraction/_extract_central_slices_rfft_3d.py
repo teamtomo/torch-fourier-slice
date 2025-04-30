@@ -14,6 +14,8 @@ def extract_central_slices_rfft_3d(
     zyx_matrices: bool = False,
 ) -> torch.Tensor:
     """Extract central slice from an fftshifted rfft."""
+    rotation_matrices = rotation_matrices.to(torch.float32)
+
     # generate grid of DFT sample frequencies for a central slice spanning the xy-plane
     freq_grid = _central_slice_fftfreq_grid(
         volume_shape=image_shape,
