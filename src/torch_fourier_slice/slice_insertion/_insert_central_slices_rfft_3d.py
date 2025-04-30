@@ -13,12 +13,17 @@ def insert_central_slices_rfft_3d(
     fftfreq_max: float | None = None,
     zyx_matrices: bool = False,
 ) -> tuple[torch.Tensor, torch.Tensor]:
+    rotation_matrices = rotation_matrices.to(torch.float32)
+
+    ft_dtype = image_rfft.dtype
+    device = image_rfft.device
+
     # generate grid of DFT sample frequencies for a central slice spanning the xy-plane
     freq_grid = _central_slice_fftfreq_grid(
         volume_shape=volume_shape,
         rfft=True,
         fftshift=True,
-        device=image_rfft.device,
+        device=device,
     )  # (h, w, 3)
 
     # get (b, 3, 1) array of zyx coordinates to rotate (up to fftfreq_max)
@@ -30,7 +35,7 @@ def insert_central_slices_rfft_3d(
         valid_coords = freq_grid[freq_grid_mask, ...]  # (b, zyx)
     else:
         freq_grid_mask = torch.ones(
-            size=image_rfft.shape[-2:], dtype=torch.bool, device=image_rfft.device
+            size=image_rfft.shape[-2:], dtype=torch.bool, device=device
         )
         valid_coords = einops.rearrange(freq_grid, "h w zyx -> (h w) zyx")
     valid_coords = einops.rearrange(valid_coords, "b zyx -> b zyx 1")
@@ -71,9 +76,15 @@ def insert_central_slices_rfft_3d(
 
     # initialise output volume and volume for keeping track of weights
     dft_3d = torch.zeros(
-        size=_rfft_shape(volume_shape), dtype=torch.complex128, device=image_rfft.device
+        size=_rfft_shape(volume_shape),
+        dtype=ft_dtype,
+        device=device,
     )
-    weights = torch.zeros_like(dft_3d, dtype=torch.float64, device=image_rfft.device)
+    weights = torch.zeros_like(
+        dft_3d,
+        dtype=torch.float32 if ft_dtype == torch.complex64 else torch.float64,
+        device=device,
+    )
 
     # insert data into 3D DFT
     dft_3d, weights = insert_into_image_3d(

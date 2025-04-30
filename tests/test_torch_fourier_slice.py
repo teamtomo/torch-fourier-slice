@@ -64,14 +64,14 @@ def test_3d_2d_projection_backprojection_cycle(cube):
 
 
 @pytest.mark.parametrize(
-    "images, rotation_matrices",
-    [
-        (
-            torch.rand((10, 28, 28)).float(),
-            torch.tensor(special_ortho_group.rvs(dim=3, size=10)).float(),
-        ),
-    ],
+    "dtype",
+    [torch.float32, torch.float64],
 )
-def test_dtypes_slice_insertion(images, rotation_matrices):
+def test_dtypes_slice_insertion(dtype):
+    images = torch.rand((10, 28, 28), dtype=dtype)
+    rotation_matrices = torch.tensor(
+        special_ortho_group.rvs(dim=3, size=10),
+        dtype=dtype,
+    )
     result = backproject_2d_to_3d(images, rotation_matrices)
-    assert result.dtype == torch.float64
+    assert result.dtype == dtype
