@@ -65,13 +65,14 @@ def test_3d_2d_projection_backprojection_cycle(cube):
 
 def test_3d_2d_projection_backprojection_cycle_leading_dims(cube):
     # make projections
+    size = cube.shape[-1]
     rotation_matrices = torch.rand((4, 5, 3, 3))
     projections = project_3d_to_2d(
         volume=cube,
         rotation_matrices=rotation_matrices,
     )
 
-    assert projections.shape == (4, 5, 32, 32)
+    assert projections.shape == (4, 5, size, size)
 
     # reconstruct
     volume = backproject_2d_to_3d(
@@ -79,7 +80,7 @@ def test_3d_2d_projection_backprojection_cycle_leading_dims(cube):
         rotation_matrices=rotation_matrices,
     )
 
-    assert volume.shape == (32, 32, 32)
+    assert volume.shape == (size,) * 3
 
 
 @pytest.mark.parametrize(
