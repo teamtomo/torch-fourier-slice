@@ -34,7 +34,7 @@ def backproject_2d_to_3d(
     reconstruction: torch.Tensor
         `(d, h, w)` cubic volume containing the 3D reconstruction from `images`.
     """
-    b, h, w = images.shape
+    h, w = images.shape[-2:]
     if h != w:
         raise ValueError("images must be square.")
     if pad is True:
@@ -42,7 +42,7 @@ def backproject_2d_to_3d(
         images = F.pad(images, pad=[p] * 4)
 
     # construct shapes
-    b, h, w = images.shape
+    h, w = images.shape[-2:]
     volume_shape = (w, w, w)
 
     # calculate DFTs of images
