@@ -38,6 +38,9 @@ def project_3d_to_2d(
     projections: torch.Tensor
         `(..., d, d)` array of projection images.
     """
+    d, h, w = volume.shape[-3:]
+    if len({d, h, w}) != 1:  # use set to remove duplicates
+        raise ValueError("all dimensions of volume must be equal.")
     # padding
     if pad is True:
         pad_length = volume.shape[-1] // 2
@@ -111,6 +114,9 @@ def project_3d_to_2d_batched(
     projections: torch.Tensor
         `(..., d, d)` array of projection images.
     """
+    d, h, w = volume.shape[-3:]
+    if len({d, h, w}) != 1:  # use set to remove duplicates
+        raise ValueError("all dimensions of volume must be equal.")
     # padding
     if pad is True:
         pad_length = volume.shape[-1] // 2
@@ -186,6 +192,9 @@ def project_2d_to_1d(
     projections: torch.Tensor
         `(..., d)` array of projected lines.
     """
+    h, w = image.shape[-3:]
+    if len({h, w}) != 1:  # use set to remove duplicates
+        raise ValueError("all dimensions of image must be equal.")
     # padding
     if pad is True:
         pad_length = image.shape[-1] // 2
