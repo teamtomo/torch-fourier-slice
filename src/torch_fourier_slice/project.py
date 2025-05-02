@@ -116,9 +116,11 @@ def project_3d_to_2d_batched(
         pad_length = volume.shape[-1] // 2
         volume = F.pad(volume, pad=[pad_length] * 6, mode="constant", value=0)
 
+    volume_shape = tuple(volume.shape[-3:])
+
     # premultiply by sinc2
     grid = fftfreq_grid(
-        image_shape=volume.shape[-3:],
+        image_shape=volume_shape,
         rfft=False,
         fftshift=True,
         norm=True,
@@ -136,7 +138,7 @@ def project_3d_to_2d_batched(
     # make projections by taking central slices
     projections = extract_central_slices_rfft_3d_batched(
         volume_rfft=dft,
-        image_shape=volume.shape[-3:],
+        image_shape=volume_shape,
         rotation_matrices=rotation_matrices,
         fftfreq_max=fftfreq_max,
         zyx_matrices=zyx_matrices,

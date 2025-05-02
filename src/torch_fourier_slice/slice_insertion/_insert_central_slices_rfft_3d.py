@@ -98,9 +98,9 @@ def insert_central_slices_rfft_3d(
 
 
 def insert_central_slices_rfft_3d_batched(
-    image_rfft: torch.Tensor,  # fftshifted rfft of (b, n, h, w) 2d image
+    image_rfft: torch.Tensor,  # fftshifted rfft of (b, ..., h, w) 2d image
     volume_shape: tuple[int, int, int],
-    rotation_matrices: torch.Tensor,
+    rotation_matrices: torch.Tensor,  # (..., 3, 3) dims need to match rfft
     fftfreq_max: float | None = None,
     zyx_matrices: bool = False,
 ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -153,7 +153,7 @@ def insert_central_slices_rfft_3d_batched(
 
     # rotate all valid coordinates by each rotation matrix and remove last dim
     rotated_coordinates = einops.rearrange(
-        rotation_matrices @ valid_coords, pattern="... n zyx 1 -> ... n zyx"
+        rotation_matrices @ valid_coords, pattern="... hw zyx 1 -> ... hw zyx"
     )
 
     # flip coordinates in redundant half transform and take conjugate value
@@ -161,7 +161,7 @@ def insert_central_slices_rfft_3d_batched(
     rotated_coordinates[conjugate_mask] *= -1
     valid_data[..., conjugate_mask] = torch.conj(valid_data[..., conjugate_mask])
     # switch batch to channel for torch-image-interpolation
-    valid_data = einops.rearrange(valid_data, "n hw zyx -> hw zyx n")
+    valid_data = einops.rearrange(valid_data, "b ... hw zyx -> ... hw zyx b")
 
     # calculate positions to sample in DFT array from fftfreq coordinates
     rotated_coordinates = _fftfreq_to_dft_coordinates(

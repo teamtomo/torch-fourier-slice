@@ -90,12 +90,12 @@ def extract_central_slices_rfft_3d(
 
 
 def extract_central_slices_rfft_3d_batched(
-    volume_rfft: torch.Tensor,
+    volume_rfft: torch.Tensor,  # (b, d, h, w)
     image_shape: tuple[int, int, int],
     rotation_matrices: torch.Tensor,  # (..., 3, 3)
     fftfreq_max: float | None = None,
     zyx_matrices: bool = False,
-) -> torch.Tensor:
+) -> torch.Tensor:  # (b, ..., h, w)
     """Extract central slice from an fftshifted rfft."""
     rotation_matrices = rotation_matrices.to(torch.float32)
 
@@ -108,9 +108,10 @@ def extract_central_slices_rfft_3d_batched(
     )  # (h, w, 3) zyx coords
 
     # keep track of some shapes
+    batch_size = volume_rfft.shape[0]
     stack_shape = tuple(rotation_matrices.shape[:-2])
     rfft_shape = freq_grid.shape[-3], freq_grid.shape[-2]
-    output_shape = (*stack_shape, *rfft_shape)
+    output_shape = (batch_size, *stack_shape, *rfft_shape)
 
     # get (b, 3, 1) array of zyx coordinates to rotate
     if fftfreq_max is not None:
@@ -124,7 +125,7 @@ def extract_central_slices_rfft_3d_batched(
             size=rfft_shape, dtype=torch.bool, device=volume_rfft.device
         )
         valid_coords = einops.rearrange(freq_grid, "h w zyx -> (h w) zyx")
-    valid_coords = einops.rearrange(valid_coords, "b zyx -> b zyx 1")
+    valid_coords = einops.rearrange(valid_coords, "hw zyx -> hw zyx 1")
 
     # rotation matrices rotate xyz coordinates, make them rotate zyx coordinates
     # xyz:
@@ -146,7 +147,7 @@ def extract_central_slices_rfft_3d_batched(
     rotated_coords = rotation_matrices @ valid_coords  # (..., b, zyx, 1)
 
     # remove last dim of size 1
-    rotated_coords = einops.rearrange(rotated_coords, "... b zyx 1 -> ... b zyx")
+    rotated_coords = einops.rearrange(rotated_coords, "... hw zyx 1 -> ... hw zyx")
 
     # flip coordinates that ended up in redundant half transform after rotation
     conjugate_mask = rotated_coords[..., 2] < 0
@@ -158,10 +159,11 @@ def extract_central_slices_rfft_3d_batched(
     )
     samples = sample_image_3d(
         image=volume_rfft, coordinates=rotated_coords, interpolation="trilinear"
-    )  # (...) rfft
+    )  # shape is (..., b)
+    samples = einops.rearrange(samples, "... b -> b ...")
 
     # take complex conjugate of values from redundant half transform
-    samples[conjugate_mask] = torch.conj(samples[conjugate_mask])
+    samples[..., conjugate_mask] = torch.conj(samples[..., conjugate_mask])
 
     # insert samples back into DFTs
     projection_image_dfts = torch.zeros(

@@ -8,6 +8,7 @@ from torch_fourier_slice import (
     backproject_2d_to_3d_batched,
     project_2d_to_1d,
     project_3d_to_2d,
+    project_3d_to_2d_batched,
 )
 
 
@@ -88,16 +89,22 @@ def test_3d_2d_projection_backprojection_cycle_leading_dims(cube):
     assert volume.shape == (size,) * 3
 
 
-def test_backproject_3d_to_2d_batched():
+def test_3d_to_2d_projection_backprojection_cycle_batched():
+    batch, slices, size = 4, 8, 10
+    volumes_shape = (batch, size, size, size)
+    projections_shape = (batch, slices, size, size)
     # a batch of 4 sub tilt-series with 20 tilts each at the same rotations
-    images = torch.rand((4, 20, 10, 10))  # (b, n, h, w)
+    volumes = torch.rand(volumes_shape)  # (b, n, h, w)
     # a rotation matrix for each tilt -> (n, 3, 3)
-    rotation_matrices = torch.tensor(special_ortho_group.rvs(dim=3, size=20))
+    rotation_matrices = torch.tensor(special_ortho_group.rvs(dim=3, size=slices))
 
     # run batched back projection
-    result = backproject_2d_to_3d_batched(images, rotation_matrices)
+    projections = project_3d_to_2d_batched(volumes, rotation_matrices)
+    assert projections.shape == projections_shape
 
-    assert result.shape == (4, 10, 10, 10)
+    # run batched back projection
+    result = backproject_2d_to_3d_batched(projections, rotation_matrices)
+    assert result.shape == volumes_shape
 
 
 @pytest.mark.parametrize(

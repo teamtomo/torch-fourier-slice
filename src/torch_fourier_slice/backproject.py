@@ -84,20 +84,20 @@ def backproject_2d_to_3d(
 
 
 def backproject_2d_to_3d_batched(
-    images: torch.Tensor,  # (b, n, h, w)
-    rotation_matrices: torch.Tensor,  # (n, 3, 3)
+    images: torch.Tensor,  # (b, ..., h, w)
+    rotation_matrices: torch.Tensor,  # (..., 3, 3)
     pad: bool = True,
     fftfreq_max: float | None = None,
     zyx_matrices: bool = False,
 ) -> torch.Tensor:
-    """Perform a 3D reconstruction from a set of 2D projection images.
+    """Perform a 3D reconstruction from a batch of 2D projection images.
 
     Parameters
     ----------
     images: torch.Tensor
-        `(b, n, h, w)` batch of arrays of 2D projection images.
+        `(b, ..., h, w)` batch of arrays of 2D projection images.
     rotation_matrices: torch.Tensor
-        `(n, 3, 3)` array of rotation matrices to insert each batch of n
+        `(..., 3, 3)` array of rotation matrices to insert each batch of
         `images`. Rotation matrices left-multiply column vectors containing
         xyz coordinates.
     pad: bool
@@ -114,7 +114,7 @@ def backproject_2d_to_3d_batched(
         `(b, d, h, w)` batch of cubic volume containing the 3D reconstructions
         from each set in the batch of `images`.
     """
-    _, _, h, w = images.shape
+    h, w = images.shape[-2:]
     if h != w:
         raise ValueError("images must be square.")
     if pad is True:
@@ -122,7 +122,7 @@ def backproject_2d_to_3d_batched(
         images = F.pad(images, pad=[p] * 4)
 
     # construct shapes
-    b, n, h, w = images.shape
+    h, w = images.shape[-2:]
     volume_shape = (w, w, w)
 
     # calculate DFTs of images
