@@ -9,7 +9,7 @@ from .slice_insertion import (
 
 
 def backproject_2d_to_3d(
-    images: torch.Tensor,  # (b, h, w)
+    images: torch.Tensor,  # (b, d, d)
     rotation_matrices: torch.Tensor,  # (b, 3, 3)
     pad: bool = True,
     fftfreq_max: float | None = None,
@@ -20,7 +20,7 @@ def backproject_2d_to_3d(
     Parameters
     ----------
     images: torch.Tensor
-        `(..., h, w)` array of 2D projection images.
+        `(..., d, d)` array of 2D projection images.
     rotation_matrices: torch.Tensor
         `(..., 3, 3)` array of rotation matrices for insert of `images`.
         Rotation matrices left-multiply column vectors containing xyz coordinates.
@@ -35,7 +35,8 @@ def backproject_2d_to_3d(
     Returns
     -------
     reconstruction: torch.Tensor
-        `(d, h, w)` cubic volume containing the 3D reconstruction from `images`.
+        `(d, d, d)` cubic volume containing the 3D reconstruction from
+        `images`.
     """
     h, w = images.shape[-2:]
     if h != w:
@@ -84,7 +85,7 @@ def backproject_2d_to_3d(
 
 
 def backproject_2d_to_3d_batched(
-    images: torch.Tensor,  # (b, ..., h, w)
+    images: torch.Tensor,  # (b, ..., d, d)
     rotation_matrices: torch.Tensor,  # (..., 3, 3)
     pad: bool = True,
     fftfreq_max: float | None = None,
@@ -95,7 +96,7 @@ def backproject_2d_to_3d_batched(
     Parameters
     ----------
     images: torch.Tensor
-        `(b, ..., h, w)` batch of arrays of 2D projection images.
+        `(b, ..., d, d)` batch of arrays of 2D projection images.
     rotation_matrices: torch.Tensor
         `(..., 3, 3)` array of rotation matrices to insert each batch of
         `images`. Rotation matrices left-multiply column vectors containing
@@ -111,7 +112,7 @@ def backproject_2d_to_3d_batched(
     Returns
     -------
     reconstruction: torch.Tensor
-        `(b, d, h, w)` batch of cubic volume containing the 3D reconstructions
+        `(b, d, d, d)` batch of cubic volume containing the 3D reconstructions
         from each set in the batch of `images`.
     """
     h, w = images.shape[-2:]
