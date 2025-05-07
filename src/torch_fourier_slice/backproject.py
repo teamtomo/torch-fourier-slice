@@ -4,7 +4,7 @@ from torch_grid_utils import fftfreq_grid
 
 from .slice_insertion import (
     insert_central_slices_rfft_3d,
-    insert_central_slices_rfft_3d_batched,
+    insert_central_slices_rfft_3d_multichannel,
 )
 
 
@@ -84,21 +84,21 @@ def backproject_2d_to_3d(
     return torch.real(dft)
 
 
-def backproject_2d_to_3d_batched(
-    images: torch.Tensor,  # (b, ..., d, d)
+def backproject_2d_to_3d_multichannel(
+    images: torch.Tensor,  # (..., c, d, d)
     rotation_matrices: torch.Tensor,  # (..., 3, 3)
     pad: bool = True,
     fftfreq_max: float | None = None,
     zyx_matrices: bool = False,
 ) -> torch.Tensor:
-    """Perform a 3D reconstruction from a batch of 2D projection images.
+    """Perform a 3D reconstruction from multichannel 2D projection images.
 
     Parameters
     ----------
     images: torch.Tensor
-        `(b, ..., d, d)` batch of arrays of 2D projection images.
+        `(..., c, d, d)` multichannel tensors of 2D projection images.
     rotation_matrices: torch.Tensor
-        `(..., 3, 3)` array of rotation matrices to insert each batch of
+        `(..., 3, 3)` array of rotation matrices to insert each channel of
         `images`. Rotation matrices left-multiply column vectors containing
         xyz coordinates.
     pad: bool
@@ -112,8 +112,8 @@ def backproject_2d_to_3d_batched(
     Returns
     -------
     reconstruction: torch.Tensor
-        `(b, d, d, d)` batch of cubic volume containing the 3D reconstructions
-        from each set in the batch of `images`.
+        `(c, d, d, d)` multichannel cubic volume containing the 3D
+        reconstructions.
     """
     h, w = images.shape[-2:]
     if h != w:
@@ -132,7 +132,7 @@ def backproject_2d_to_3d_batched(
     images = torch.fft.fftshift(images, dim=(-2,))  # actual fftshift
 
     # insert image DFTs into a 3D rfft as central slices
-    dft, weights = insert_central_slices_rfft_3d_batched(
+    dft, weights = insert_central_slices_rfft_3d_multichannel(
         image_rfft=images,
         volume_shape=volume_shape,
         rotation_matrices=rotation_matrices,

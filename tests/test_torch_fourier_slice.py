@@ -5,10 +5,10 @@ from torch_fourier_shell_correlation import fsc
 
 from torch_fourier_slice import (
     backproject_2d_to_3d,
-    backproject_2d_to_3d_batched,
+    backproject_2d_to_3d_multichannel,
     project_2d_to_1d,
     project_3d_to_2d,
-    project_3d_to_2d_batched,
+    project_3d_to_2d_multichannel,
 )
 
 
@@ -89,21 +89,21 @@ def test_3d_2d_projection_backprojection_cycle_leading_dims(cube):
     assert volume.shape == (size,) * 3
 
 
-def test_3d_to_2d_projection_backprojection_cycle_batched():
-    batch, slices, size = 4, 8, 10
-    volumes_shape = (batch, size, size, size)
-    projections_shape = (batch, slices, size, size)
-    # a batch of 4 sub tilt-series with 20 tilts each at the same rotations
-    volumes = torch.rand(volumes_shape)  # (b, n, h, w)
+def test_3d_to_2d_projection_backprojection_cycle_multichannel():
+    channels, slices, size = 4, 8, 10
+    volumes_shape = (channels, size, size, size)
+    projections_shape = (slices, channels, size, size)
+    # a volume with 4 channels
+    volumes = torch.rand(volumes_shape)  # (c, d, d, d)
     # a rotation matrix for each tilt -> (n, 3, 3)
     rotation_matrices = torch.tensor(special_ortho_group.rvs(dim=3, size=slices))
 
     # run batched back projection
-    projections = project_3d_to_2d_batched(volumes, rotation_matrices)
+    projections = project_3d_to_2d_multichannel(volumes, rotation_matrices)
     assert projections.shape == projections_shape
 
     # run batched back projection
-    result = backproject_2d_to_3d_batched(projections, rotation_matrices)
+    result = backproject_2d_to_3d_multichannel(projections, rotation_matrices)
     assert result.shape == volumes_shape
 
 

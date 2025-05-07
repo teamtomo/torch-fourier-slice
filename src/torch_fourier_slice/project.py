@@ -5,7 +5,7 @@ from torch_grid_utils import fftfreq_grid
 from .slice_extraction import (
     extract_central_slices_rfft_2d,
     extract_central_slices_rfft_3d,
-    extract_central_slices_rfft_3d_batched,
+    extract_central_slices_rfft_3d_multichannel,
 )
 
 
@@ -85,19 +85,19 @@ def project_3d_to_2d(
     return torch.real(projections)
 
 
-def project_3d_to_2d_batched(
+def project_3d_to_2d_multichannel(
     volume: torch.Tensor,
     rotation_matrices: torch.Tensor,
     pad: bool = True,
     fftfreq_max: float | None = None,
     zyx_matrices: bool = False,
 ) -> torch.Tensor:
-    """Project a batch of cubic volumes with the same rotations.
+    """Project a multichannel cubic volume with the same rotations.
 
     Parameters
     ----------
     volume: torch.Tensor
-        `(b, d, d, d)` volume.
+        `(c, d, d, d)` volume.
     rotation_matrices: torch.Tensor
         `(..., 3, 3)` array of rotation matrices for extraction of `images`.
         Rotation matrices left-multiply column vectors containing xyz coordinates.
@@ -112,7 +112,7 @@ def project_3d_to_2d_batched(
     Returns
     -------
     projections: torch.Tensor
-        `(..., d, d)` array of projection images.
+        `(..., c, d, d)` tensor of multichannel projection images.
     """
     d, h, w = volume.shape[-3:]
     if len({d, h, w}) != 1:  # use set to remove duplicates
@@ -142,7 +142,7 @@ def project_3d_to_2d_batched(
     dft = torch.fft.fftshift(dft, dim=(-3, -2))
 
     # make projections by taking central slices
-    projections = extract_central_slices_rfft_3d_batched(
+    projections = extract_central_slices_rfft_3d_multichannel(
         volume_rfft=dft,
         image_shape=volume_shape,
         rotation_matrices=rotation_matrices,
