@@ -17,11 +17,11 @@ from .backproject import (
     backproject_2d_to_3d,
     backproject_2d_to_3d_multichannel,
 )
-from .project import project_2d_to_1d, project_3d_to_2d, project_3d_to_2d_batched
+from .project import project_2d_to_1d, project_3d_to_2d, project_3d_to_2d_multichannel
 from .slice_extraction import (
     extract_central_slices_rfft_2d,
     extract_central_slices_rfft_3d,
-    extract_central_slices_rfft_3d_batched,
+    extract_central_slices_rfft_3d_multichannel,
 )
 from .slice_insertion import (
     insert_central_slices_rfft_3d,
@@ -32,10 +32,10 @@ __all__ = [
     "backproject_2d_to_3d",
     "backproject_2d_to_3d_multichannel",
     "project_3d_to_2d",
-    "project_3d_to_2d_batched",
+    "project_3d_to_2d_multichannel",
     "project_2d_to_1d",
     "extract_central_slices_rfft_3d",
-    "extract_central_slices_rfft_3d_batched",
+    "extract_central_slices_rfft_3d_multichannel",
     "extract_central_slices_rfft_2d",
     "insert_central_slices_rfft_3d",
     "insert_central_slices_rfft_3d_multichannel",
