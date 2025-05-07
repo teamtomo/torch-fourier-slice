@@ -1,3 +1,4 @@
+import einops
 import pytest
 import torch
 from scipy.stats import special_ortho_group
@@ -5,7 +6,7 @@ from torch_fourier_shell_correlation import fsc
 
 from torch_fourier_slice import (
     backproject_2d_to_3d,
-    backproject_2d_to_3d_batched,
+    backproject_2d_to_3d_multichannel,
     project_2d_to_1d,
     project_3d_to_2d,
     project_3d_to_2d_batched,
@@ -89,7 +90,7 @@ def test_3d_2d_projection_backprojection_cycle_leading_dims(cube):
     assert volume.shape == (size,) * 3
 
 
-def test_3d_to_2d_projection_backprojection_cycle_batched():
+def test_3d_to_2d_projection_backprojection_cycle_multichannel():
     batch, slices, size = 4, 8, 10
     volumes_shape = (batch, size, size, size)
     projections_shape = (batch, slices, size, size)
@@ -102,8 +103,10 @@ def test_3d_to_2d_projection_backprojection_cycle_batched():
     projections = project_3d_to_2d_batched(volumes, rotation_matrices)
     assert projections.shape == projections_shape
 
+    projections = einops.rearrange(projections, "b n h w -> n b h w")
+
     # run batched back projection
-    result = backproject_2d_to_3d_batched(projections, rotation_matrices)
+    result = backproject_2d_to_3d_multichannel(projections, rotation_matrices)
     assert result.shape == volumes_shape
 
 

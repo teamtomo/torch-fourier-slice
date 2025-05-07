@@ -97,8 +97,8 @@ def insert_central_slices_rfft_3d(
     return dft_3d, weights
 
 
-def insert_central_slices_rfft_3d_batched(
-    image_rfft: torch.Tensor,  # fftshifted rfft of (b, ..., h, w) 2d image
+def insert_central_slices_rfft_3d_multichannel(
+    image_rfft: torch.Tensor,  # fftshifted rfft of (..., c, d, d) 2d image
     volume_shape: tuple[int, int, int],
     rotation_matrices: torch.Tensor,  # (..., 3, 3) dims need to match rfft
     fftfreq_max: float | None = None,
@@ -107,7 +107,7 @@ def insert_central_slices_rfft_3d_batched(
     rotation_matrices = rotation_matrices.to(torch.float32)
     ft_dtype = image_rfft.dtype
     device = image_rfft.device
-    batch_size = image_rfft.shape[0]
+    channels = image_rfft.shape[-3]
 
     # generate grid of DFT sample frequencies for a central slice spanning the xy-plane
     freq_grid = _central_slice_fftfreq_grid(
@@ -115,7 +115,7 @@ def insert_central_slices_rfft_3d_batched(
         rfft=True,
         fftshift=True,
         device=device,
-    )  # (d, h, w, 3)
+    )  # (d, d, d, 3)
 
     # get (b, 3, 1) array of zyx coordinates to rotate (up to fftfreq_max)
     if fftfreq_max is not None:
@@ -159,9 +159,9 @@ def insert_central_slices_rfft_3d_batched(
     # flip coordinates in redundant half transform and take conjugate value
     conjugate_mask = rotated_coordinates[..., 2] < 0
     rotated_coordinates[conjugate_mask] *= -1
-    valid_data[..., conjugate_mask] = torch.conj(valid_data[..., conjugate_mask])
-    # switch batch to channel for torch-image-interpolation
-    valid_data = einops.rearrange(valid_data, "b ... hw zyx -> ... hw zyx b")
+    # switch channel to end for torch-image-interpolation
+    valid_data = einops.rearrange(valid_data, "... c hw -> ... hw c")
+    valid_data[conjugate_mask] = torch.conj(valid_data[conjugate_mask])
 
     # calculate positions to sample in DFT array from fftfreq coordinates
     rotated_coordinates = _fftfreq_to_dft_coordinates(
@@ -171,7 +171,7 @@ def insert_central_slices_rfft_3d_batched(
     # initialise output volume and volume for keeping track of weights
     volume_dft_shape = _rfft_shape(volume_shape)
     dft_3d = torch.zeros(
-        size=(batch_size, *volume_dft_shape),
+        size=(channels, *volume_dft_shape),
         dtype=ft_dtype,
         device=device,
     )

@@ -13,7 +13,10 @@ except PackageNotFoundError:
 __author__ = "Alister Burt"
 __email__ = "alisterburt@gmail.com"
 
-from .backproject import backproject_2d_to_3d, backproject_2d_to_3d_batched
+from .backproject import (
+    backproject_2d_to_3d,
+    backproject_2d_to_3d_multichannel,
+)
 from .project import project_2d_to_1d, project_3d_to_2d, project_3d_to_2d_batched
 from .slice_extraction import (
     extract_central_slices_rfft_2d,
@@ -22,12 +25,12 @@ from .slice_extraction import (
 )
 from .slice_insertion import (
     insert_central_slices_rfft_3d,
-    insert_central_slices_rfft_3d_batched,
+    insert_central_slices_rfft_3d_multichannel,
 )
 
 __all__ = [
     "backproject_2d_to_3d",
-    "backproject_2d_to_3d_batched",
+    "backproject_2d_to_3d_multichannel",
     "project_3d_to_2d",
     "project_3d_to_2d_batched",
     "project_2d_to_1d",
@@ -35,5 +38,5 @@ __all__ = [
     "extract_central_slices_rfft_3d_batched",
     "extract_central_slices_rfft_2d",
     "insert_central_slices_rfft_3d",
-    "insert_central_slices_rfft_3d_batched",
+    "insert_central_slices_rfft_3d_multichannel",
 ]
