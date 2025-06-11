@@ -89,7 +89,7 @@ def project_3d_to_2d(
     # unpad
     if pad_factor > 0.0:
         projections = F.pad(projections, pad=[-p] * 4)
-    return torch.real(projections)
+    return projections
 
 
 def project_3d_to_2d_multichannel(
@@ -172,7 +172,7 @@ def project_3d_to_2d_multichannel(
     # unpad
     if pad_factor > 0.0:
         projections = F.pad(projections, pad=[-p] * 4)
-    return torch.real(projections)
+    return projections
 
 
 def project_2d_to_1d(
@@ -254,4 +254,4 @@ def project_2d_to_1d(
     if pad_factor > 0.0:
         projections = F.pad(projections, pad=[-p] * 2)
 
-    return torch.real(projections)
+    return projections
