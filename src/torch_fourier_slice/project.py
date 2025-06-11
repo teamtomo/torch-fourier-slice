@@ -192,7 +192,7 @@ def project_2d_to_1d(
     projections: torch.Tensor
         `(..., d)` array of projected lines.
     """
-    h, w = image.shape[-3:]
+    h, w = image.shape[-2:]
     if len({h, w}) != 1:  # use set to remove duplicates
         raise ValueError("all dimensions of image must be equal.")
     # padding
