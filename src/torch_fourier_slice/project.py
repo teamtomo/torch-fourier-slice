@@ -26,7 +26,8 @@ def project_3d_to_2d(
         `(..., 3, 3)` array of rotation matrices for extraction of `images`.
         Rotation matrices left-multiply column vectors containing xyz coordinates.
     pad_factor: float
-        How much padding to use to improve sampling in Fourier space.
+        How much padding to use to improve sampling in Fourier space. The
+        padding is specified as a factor of the image/box size.
         The default value of 2.0 should suffice in most cases. See issue #24
         for more info.
     fftfreq_max: float | None
@@ -109,7 +110,8 @@ def project_3d_to_2d_multichannel(
         `(..., 3, 3)` array of rotation matrices for extraction of `images`.
         Rotation matrices left-multiply column vectors containing xyz coordinates.
     pad_factor: float
-        How much padding to use to improve sampling in Fourier space.
+        How much padding to use to improve sampling in Fourier space. The
+        padding is specified as a factor of the image/box size.
         The default value of 2.0 should suffice in most cases. See issue #24
         for more info.
     fftfreq_max: float | None
@@ -192,7 +194,8 @@ def project_2d_to_1d(
         `(..., 2, 2)` array of rotation matrices for extraction of `lines`.
         Rotation matrices left-multiply column vectors containing xy coordinates.
     pad_factor: float
-        How much padding to use to improve sampling in Fourier space.
+        How much padding to use to improve sampling in Fourier space. The
+        padding is specified as a factor of the image/box size.
         The default value of 2.0 should suffice in most cases. See issue #24
         for more info.
     fftfreq_max: float | None

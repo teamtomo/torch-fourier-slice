@@ -25,7 +25,8 @@ def backproject_2d_to_3d(
         `(..., 3, 3)` array of rotation matrices for insert of `images`.
         Rotation matrices left-multiply column vectors containing xyz coordinates.
     pad_factor: float
-        How much padding to use to improve sampling in Fourier space.
+        How much padding to use to improve sampling in Fourier space. The
+        padding is specified as a factor of the image/box size.
         The default value of 2.0 should suffice in most cases. See issue #24
         for more info.
     fftfreq_max: float | None
@@ -107,7 +108,8 @@ def backproject_2d_to_3d_multichannel(
         `images`. Rotation matrices left-multiply column vectors containing
         xyz coordinates.
     pad_factor: float
-        How much padding to use to improve sampling in Fourier space.
+        How much padding to use to improve sampling in Fourier space. The
+        padding is specified as a factor of the image/box size.
         The default value of 2.0 should suffice in most cases. See issue #24
         for more info.
     fftfreq_max: float | None
