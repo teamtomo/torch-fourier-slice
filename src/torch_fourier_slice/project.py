@@ -210,7 +210,7 @@ def project_2d_to_1d(
         `(..., d)` array of projected lines.
     """
     h, w = image.shape[-2:]
-    if h != w:  # use set to remove duplicates
+    if h != w:
         raise ValueError("all dimensions of image must be equal.")
 
     if pad_factor < 1.0:
