@@ -12,7 +12,7 @@ from .slice_extraction import (
 def project_3d_to_2d(
     volume: torch.Tensor,
     rotation_matrices: torch.Tensor,
-    pad_factor: float = 2.0,
+    pad_factor: float = 3.0,
     fftfreq_max: float | None = None,
     zyx_matrices: bool = False,
 ) -> torch.Tensor:
@@ -26,9 +26,9 @@ def project_3d_to_2d(
         `(..., 3, 3)` array of rotation matrices for extraction of `images`.
         Rotation matrices left-multiply column vectors containing xyz coordinates.
     pad_factor: float
-        How much padding to use to improve sampling in Fourier space. The
-        padding is specified as a factor of the image/box size.
-        The default value of 2.0 should suffice in most cases. See issue #24
+        Factor determining the size after padding relative to the original size.
+        A pad_factor of 2.0 doubles the box size, 3.0 triples it, etc.
+        The default value of 3.0 should suffice in most cases. See issue #24
         for more info.
     fftfreq_max: float | None
         Maximum frequency (cycles per pixel) included in the projection.
@@ -45,10 +45,10 @@ def project_3d_to_2d(
     if len({d, h, w}) != 1:  # use set to remove duplicates
         raise ValueError("all dimensions of volume must be equal.")
 
-    if pad_factor < 0.0:
-        raise ValueError("pad_factor must be >= 0.0")
-    if pad_factor > 0.0:
-        p = int((volume.shape[-1] * pad_factor) // 2)
+    if pad_factor < 1.0:
+        raise ValueError("pad_factor must be >= 1.0")
+    if pad_factor > 1.0:
+        p = int((volume.shape[-1] * (pad_factor - 1.0)) // 2)
         volume = F.pad(volume, pad=[p] * 6)
 
     # set the shape as a variable
@@ -96,7 +96,7 @@ def project_3d_to_2d(
 def project_3d_to_2d_multichannel(
     volume: torch.Tensor,
     rotation_matrices: torch.Tensor,
-    pad_factor: float = 2.0,
+    pad_factor: float = 3.0,
     fftfreq_max: float | None = None,
     zyx_matrices: bool = False,
 ) -> torch.Tensor:
@@ -110,9 +110,9 @@ def project_3d_to_2d_multichannel(
         `(..., 3, 3)` array of rotation matrices for extraction of `images`.
         Rotation matrices left-multiply column vectors containing xyz coordinates.
     pad_factor: float
-        How much padding to use to improve sampling in Fourier space. The
-        padding is specified as a factor of the image/box size.
-        The default value of 2.0 should suffice in most cases. See issue #24
+        Factor determining the size after padding relative to the original size.
+        A pad_factor of 2.0 doubles the box size, 3.0 triples it, etc.
+        The default value of 3.0 should suffice in most cases. See issue #24
         for more info.
     fftfreq_max: float | None
         Maximum frequency (cycles per pixel) included in the projection.
@@ -129,10 +129,10 @@ def project_3d_to_2d_multichannel(
     if len({d, h, w}) != 1:  # use set to remove duplicates
         raise ValueError("all dimensions of volume must be equal.")
 
-    if pad_factor < 0.0:
-        raise ValueError("pad_factor must be >= 0.0")
-    if pad_factor > 0.0:
-        p = int((volume.shape[-1] * pad_factor) // 2)
+    if pad_factor < 1.0:
+        raise ValueError("pad_factor must be >= 1.0")
+    if pad_factor > 1.0:
+        p = int((volume.shape[-1] * (pad_factor - 1.0)) // 2)
         volume = F.pad(volume, pad=[p] * 6)
 
     # set the shape as a variable
@@ -180,7 +180,7 @@ def project_3d_to_2d_multichannel(
 def project_2d_to_1d(
     image: torch.Tensor,
     rotation_matrices: torch.Tensor,
-    pad_factor: float = 2.0,
+    pad_factor: float = 3.0,
     fftfreq_max: float | None = None,
     yx_matrices: bool = False,
 ) -> torch.Tensor:
@@ -194,9 +194,9 @@ def project_2d_to_1d(
         `(..., 2, 2)` array of rotation matrices for extraction of `lines`.
         Rotation matrices left-multiply column vectors containing xy coordinates.
     pad_factor: float
-        How much padding to use to improve sampling in Fourier space. The
-        padding is specified as a factor of the image/box size.
-        The default value of 2.0 should suffice in most cases. See issue #24
+        Factor determining the size after padding relative to the original size.
+        A pad_factor of 2.0 doubles the box size, 3.0 triples it, etc.
+        The default value of 3.0 should suffice in most cases. See issue #24
         for more info.
     fftfreq_max: float | None
         Maximum frequency (cycles per pixel) included in the projection.
@@ -209,14 +209,14 @@ def project_2d_to_1d(
     projections: torch.Tensor
         `(..., d)` array of projected lines.
     """
-    h, w = image.shape[-3:]
-    if len({h, w}) != 1:  # use set to remove duplicates
+    h, w = image.shape[-2:]
+    if h != w:  # use set to remove duplicates
         raise ValueError("all dimensions of image must be equal.")
 
-    if pad_factor < 0.0:
-        raise ValueError("pad_factor must be >= 0.0")
-    if pad_factor > 0.0:
-        p = int((image.shape[-1] * pad_factor) // 2)
+    if pad_factor < 1.0:
+        raise ValueError("pad_factor must be >= 1.0")
+    if pad_factor > 1.0:
+        p = int((image.shape[-1] * (pad_factor - 1.0)) // 2)
         image = F.pad(image, pad=[p] * 4)
 
     # set the shape as a variable

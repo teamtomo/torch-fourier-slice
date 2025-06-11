@@ -11,7 +11,7 @@ from .slice_insertion import (
 def backproject_2d_to_3d(
     images: torch.Tensor,  # (b, d, d)
     rotation_matrices: torch.Tensor,  # (b, 3, 3)
-    pad_factor: float = 2.0,
+    pad_factor: float = 3.0,
     fftfreq_max: float | None = None,
     zyx_matrices: bool = False,
 ) -> torch.Tensor:
@@ -25,9 +25,9 @@ def backproject_2d_to_3d(
         `(..., 3, 3)` array of rotation matrices for insert of `images`.
         Rotation matrices left-multiply column vectors containing xyz coordinates.
     pad_factor: float
-        How much padding to use to improve sampling in Fourier space. The
-        padding is specified as a factor of the image/box size.
-        The default value of 2.0 should suffice in most cases. See issue #24
+        Factor determining the size after padding relative to the original size.
+        A pad_factor of 2.0 doubles the box size, 3.0 triples it, etc.
+        The default value of 3.0 should suffice in most cases. See issue #24
         for more info.
     fftfreq_max: float | None
         Maximum frequency (cycles per pixel) included in the projection.
@@ -45,10 +45,10 @@ def backproject_2d_to_3d(
     if h != w:
         raise ValueError("images must be square.")
 
-    if pad_factor < 0.0:
-        raise ValueError("pad_factor must be >= 0.0")
-    if pad_factor > 0.0:
-        p = int((images.shape[-1] * pad_factor) // 2)
+    if pad_factor < 1.0:
+        raise ValueError("pad_factor must be >= 1.0")
+    if pad_factor > 1.0:
+        p = int((images.shape[-1] * (pad_factor - 1.0)) // 2)
         images = F.pad(images, pad=[p] * 4)
 
     # construct shapes
@@ -93,7 +93,7 @@ def backproject_2d_to_3d(
 def backproject_2d_to_3d_multichannel(
     images: torch.Tensor,  # (..., c, d, d)
     rotation_matrices: torch.Tensor,  # (..., 3, 3)
-    pad_factor: float = 2.0,
+    pad_factor: float = 3.0,
     fftfreq_max: float | None = None,
     zyx_matrices: bool = False,
 ) -> torch.Tensor:
@@ -108,9 +108,9 @@ def backproject_2d_to_3d_multichannel(
         `images`. Rotation matrices left-multiply column vectors containing
         xyz coordinates.
     pad_factor: float
-        How much padding to use to improve sampling in Fourier space. The
-        padding is specified as a factor of the image/box size.
-        The default value of 2.0 should suffice in most cases. See issue #24
+        Factor determining the size after padding relative to the original size.
+        A pad_factor of 2.0 doubles the box size, 3.0 triples it, etc.
+        The default value of 3.0 should suffice in most cases. See issue #24
         for more info.
     fftfreq_max: float | None
         Maximum frequency (cycles per pixel) included in the projection.
@@ -128,10 +128,10 @@ def backproject_2d_to_3d_multichannel(
     if h != w:
         raise ValueError("images must be square.")
 
-    if pad_factor < 0.0:
-        raise ValueError("pad_factor must be >= 0.0")
-    if pad_factor > 0.0:
-        p = int((images.shape[-1] * pad_factor) // 2)
+    if pad_factor < 1.0:
+        raise ValueError("pad_factor must be >= 1.0")
+    if pad_factor > 1.0:
+        p = int((images.shape[-1] * (pad_factor - 1.0)) // 2)
         images = F.pad(images, pad=[p] * 4)
 
     # construct shapes
