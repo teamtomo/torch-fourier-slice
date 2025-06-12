@@ -85,7 +85,7 @@ def backproject_2d_to_3d(
     dft = dft / torch.sinc(grid) ** 2
 
     # unpad
-    if pad_factor > 0.0:
+    if pad_factor > 1.0:
         dft = F.pad(dft, pad=[-p] * 6)
     return torch.real(dft)
 
@@ -172,6 +172,6 @@ def backproject_2d_to_3d_multichannel(
     dft = dft / torch.sinc(grid) ** 2
 
     # unpad
-    if pad_factor > 0.0:
+    if pad_factor > 1.0:
         dft = F.pad(dft, pad=[-p] * 6)
     return torch.real(dft)

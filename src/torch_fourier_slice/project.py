@@ -88,7 +88,7 @@ def project_3d_to_2d(
     )  # recenter 2D image in real space
 
     # unpad
-    if pad_factor > 0.0:
+    if pad_factor > 1.0:
         projections = F.pad(projections, pad=[-p] * 4)
     return projections
 
@@ -172,7 +172,7 @@ def project_3d_to_2d_multichannel(
     )  # recenter 2D image in real space
 
     # unpad
-    if pad_factor > 0.0:
+    if pad_factor > 1.0:
         projections = F.pad(projections, pad=[-p] * 4)
     return projections
 
@@ -254,7 +254,7 @@ def project_2d_to_1d(
     )  # recenter line in real space
 
     # unpad
-    if pad_factor > 0.0:
+    if pad_factor > 1.0:
         projections = F.pad(projections, pad=[-p] * 2)
 
     return projections
