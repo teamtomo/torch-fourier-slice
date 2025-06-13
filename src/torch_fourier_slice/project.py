@@ -12,7 +12,7 @@ from .slice_extraction import (
 def project_3d_to_2d(
     volume: torch.Tensor,
     rotation_matrices: torch.Tensor,
-    pad_factor: float = 3.0,
+    pad_factor: float = 2.0,
     fftfreq_max: float | None = None,
     zyx_matrices: bool = False,
 ) -> torch.Tensor:
@@ -28,7 +28,7 @@ def project_3d_to_2d(
     pad_factor: float
         Factor determining the size after padding relative to the original size.
         A pad_factor of 2.0 doubles the box size, 3.0 triples it, etc.
-        The default value of 3.0 should suffice in most cases. See issue #24
+        The default value of 2.0 should suffice in most cases. See issue #24
         for more info.
     fftfreq_max: float | None
         Maximum frequency (cycles per pixel) included in the projection.
@@ -96,7 +96,7 @@ def project_3d_to_2d(
 def project_3d_to_2d_multichannel(
     volume: torch.Tensor,
     rotation_matrices: torch.Tensor,
-    pad_factor: float = 3.0,
+    pad_factor: float = 2.0,
     fftfreq_max: float | None = None,
     zyx_matrices: bool = False,
 ) -> torch.Tensor:
@@ -112,7 +112,7 @@ def project_3d_to_2d_multichannel(
     pad_factor: float
         Factor determining the size after padding relative to the original size.
         A pad_factor of 2.0 doubles the box size, 3.0 triples it, etc.
-        The default value of 3.0 should suffice in most cases. See issue #24
+        The default value of 2.0 should suffice in most cases. See issue #24
         for more info.
     fftfreq_max: float | None
         Maximum frequency (cycles per pixel) included in the projection.
@@ -180,7 +180,7 @@ def project_3d_to_2d_multichannel(
 def project_2d_to_1d(
     image: torch.Tensor,
     rotation_matrices: torch.Tensor,
-    pad_factor: float = 3.0,
+    pad_factor: float = 2.0,
     fftfreq_max: float | None = None,
     yx_matrices: bool = False,
 ) -> torch.Tensor:
@@ -196,7 +196,7 @@ def project_2d_to_1d(
     pad_factor: float
         Factor determining the size after padding relative to the original size.
         A pad_factor of 2.0 doubles the box size, 3.0 triples it, etc.
-        The default value of 3.0 should suffice in most cases. See issue #24
+        The default value of 2.0 should suffice in most cases. See issue #24
         for more info.
     fftfreq_max: float | None
         Maximum frequency (cycles per pixel) included in the projection.

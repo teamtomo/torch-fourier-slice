@@ -9,7 +9,7 @@ from torch_fourier_shell_correlation import fsc
 
 from torch_fourier_slice import backproject_2d_to_3d, project_3d_to_2d
 
-N_IMAGES = 50
+N_IMAGES = 1000
 torch.manual_seed(42)
 
 # load a volume and normalise
@@ -43,7 +43,7 @@ for x in [1.0, 1.5, 2.0, 3.0, 4.0]:
     reconstruction -= torch.mean(reconstruction)
     reconstruction = reconstruction / torch.std(reconstruction)
 
-    _fsc = fsc(volume, reconstruction)[1:]
+    _fsc = fsc(volume, reconstruction)
     ax.plot(_fsc, label=f"{x}")
 
 ax.legend()
