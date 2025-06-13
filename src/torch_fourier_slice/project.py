@@ -12,7 +12,7 @@ from .slice_extraction import (
 def project_3d_to_2d(
     volume: torch.Tensor,
     rotation_matrices: torch.Tensor,
-    pad: bool = True,
+    pad_factor: float = 2.0,
     fftfreq_max: float | None = None,
     zyx_matrices: bool = False,
 ) -> torch.Tensor:
@@ -25,8 +25,11 @@ def project_3d_to_2d(
     rotation_matrices: torch.Tensor
         `(..., 3, 3)` array of rotation matrices for extraction of `images`.
         Rotation matrices left-multiply column vectors containing xyz coordinates.
-    pad: bool
-        Whether to pad the volume 2x with zeros to increase sampling rate in the DFT.
+    pad_factor: float
+        Factor determining the size after padding relative to the original size.
+        A pad_factor of 2.0 doubles the box size, 3.0 triples it, etc.
+        The default value of 2.0 should suffice in most cases. See issue #24
+        for more info.
     fftfreq_max: float | None
         Maximum frequency (cycles per pixel) included in the projection.
     zyx_matrices: bool
@@ -41,14 +44,19 @@ def project_3d_to_2d(
     d, h, w = volume.shape[-3:]
     if len({d, h, w}) != 1:  # use set to remove duplicates
         raise ValueError("all dimensions of volume must be equal.")
-    # padding
-    if pad is True:
-        pad_length = volume.shape[-1] // 2
-        volume = F.pad(volume, pad=[pad_length] * 6, mode="constant", value=0)
+
+    if pad_factor < 1.0:
+        raise ValueError("pad_factor must be >= 1.0")
+    if pad_factor > 1.0:
+        p = int((volume.shape[-1] * (pad_factor - 1.0)) // 2)
+        volume = F.pad(volume, pad=[p] * 6)
+
+    # set the shape as a variable
+    volume_shape = tuple(volume.shape[-3:])
 
     # premultiply by sinc2
     grid = fftfreq_grid(
-        image_shape=volume.shape,
+        image_shape=volume_shape,
         rfft=False,
         fftshift=True,
         norm=True,
@@ -66,7 +74,7 @@ def project_3d_to_2d(
     # make projections by taking central slices
     projections = extract_central_slices_rfft_3d(
         volume_rfft=dft,
-        image_shape=volume.shape,
+        image_shape=volume_shape,
         rotation_matrices=rotation_matrices,
         fftfreq_max=fftfreq_max,
         zyx_matrices=zyx_matrices,
@@ -79,16 +87,16 @@ def project_3d_to_2d(
         projections, dim=(-2, -1)
     )  # recenter 2D image in real space
 
-    # unpad if required
-    if pad is True:
-        projections = projections[..., pad_length:-pad_length, pad_length:-pad_length]
-    return torch.real(projections)
+    # unpad
+    if pad_factor > 1.0:
+        projections = F.pad(projections, pad=[-p] * 4)
+    return projections
 
 
 def project_3d_to_2d_multichannel(
     volume: torch.Tensor,
     rotation_matrices: torch.Tensor,
-    pad: bool = True,
+    pad_factor: float = 2.0,
     fftfreq_max: float | None = None,
     zyx_matrices: bool = False,
 ) -> torch.Tensor:
@@ -101,8 +109,11 @@ def project_3d_to_2d_multichannel(
     rotation_matrices: torch.Tensor
         `(..., 3, 3)` array of rotation matrices for extraction of `images`.
         Rotation matrices left-multiply column vectors containing xyz coordinates.
-    pad: bool
-        Whether to pad the volume 2x with zeros to increase sampling rate in the DFT.
+    pad_factor: float
+        Factor determining the size after padding relative to the original size.
+        A pad_factor of 2.0 doubles the box size, 3.0 triples it, etc.
+        The default value of 2.0 should suffice in most cases. See issue #24
+        for more info.
     fftfreq_max: float | None
         Maximum frequency (cycles per pixel) included in the projection.
     zyx_matrices: bool
@@ -117,11 +128,14 @@ def project_3d_to_2d_multichannel(
     d, h, w = volume.shape[-3:]
     if len({d, h, w}) != 1:  # use set to remove duplicates
         raise ValueError("all dimensions of volume must be equal.")
-    # padding
-    if pad is True:
-        pad_length = volume.shape[-1] // 2
-        volume = F.pad(volume, pad=[pad_length] * 6, mode="constant", value=0)
 
+    if pad_factor < 1.0:
+        raise ValueError("pad_factor must be >= 1.0")
+    if pad_factor > 1.0:
+        p = int((volume.shape[-1] * (pad_factor - 1.0)) // 2)
+        volume = F.pad(volume, pad=[p] * 6)
+
+    # set the shape as a variable
     volume_shape = tuple(volume.shape[-3:])
 
     # premultiply by sinc2
@@ -157,16 +171,16 @@ def project_3d_to_2d_multichannel(
         projections, dim=(-2, -1)
     )  # recenter 2D image in real space
 
-    # unpad if required
-    if pad is True:
-        projections = projections[..., pad_length:-pad_length, pad_length:-pad_length]
-    return torch.real(projections)
+    # unpad
+    if pad_factor > 1.0:
+        projections = F.pad(projections, pad=[-p] * 4)
+    return projections
 
 
 def project_2d_to_1d(
     image: torch.Tensor,
     rotation_matrices: torch.Tensor,
-    pad: bool = True,
+    pad_factor: float = 2.0,
     fftfreq_max: float | None = None,
     yx_matrices: bool = False,
 ) -> torch.Tensor:
@@ -179,8 +193,11 @@ def project_2d_to_1d(
     rotation_matrices: torch.Tensor
         `(..., 2, 2)` array of rotation matrices for extraction of `lines`.
         Rotation matrices left-multiply column vectors containing xy coordinates.
-    pad: bool
-        Whether to pad the volume 2x with zeros to increase sampling rate in the DFT.
+    pad_factor: float
+        Factor determining the size after padding relative to the original size.
+        A pad_factor of 2.0 doubles the box size, 3.0 triples it, etc.
+        The default value of 2.0 should suffice in most cases. See issue #24
+        for more info.
     fftfreq_max: float | None
         Maximum frequency (cycles per pixel) included in the projection.
     yx_matrices: bool
@@ -193,16 +210,21 @@ def project_2d_to_1d(
         `(..., d)` array of projected lines.
     """
     h, w = image.shape[-2:]
-    if len({h, w}) != 1:  # use set to remove duplicates
+    if h != w:
         raise ValueError("all dimensions of image must be equal.")
-    # padding
-    if pad is True:
-        pad_length = image.shape[-1] // 2
-        image = F.pad(image, pad=[pad_length] * 4, mode="constant", value=0)
+
+    if pad_factor < 1.0:
+        raise ValueError("pad_factor must be >= 1.0")
+    if pad_factor > 1.0:
+        p = int((image.shape[-1] * (pad_factor - 1.0)) // 2)
+        image = F.pad(image, pad=[p] * 4)
+
+    # set the shape as a variable
+    image_shape = tuple(image.shape[-2:])
 
     # premultiply by sinc2
     grid = fftfreq_grid(
-        image_shape=image.shape,
+        image_shape=image_shape,
         rfft=False,
         fftshift=True,
         norm=True,
@@ -218,7 +240,7 @@ def project_2d_to_1d(
     # make projections by taking central slices
     projections = extract_central_slices_rfft_2d(
         image_rfft=dft,
-        image_shape=image.shape,
+        image_shape=image_shape,
         rotation_matrices=rotation_matrices,
         fftfreq_max=fftfreq_max,
         yx_matrices=yx_matrices,
@@ -231,7 +253,8 @@ def project_2d_to_1d(
         projections, dim=(-1)
     )  # recenter line in real space
 
-    # unpad if required
-    if pad is True:
-        projections = projections[..., pad_length:-pad_length]
-    return torch.real(projections)
+    # unpad
+    if pad_factor > 1.0:
+        projections = F.pad(projections, pad=[-p] * 2)
+
+    return projections
