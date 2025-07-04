@@ -63,10 +63,9 @@ def test_3d_2d_projection_backprojection_cycle(cube):
         rotation_matrices=rotation_matrices,
     )
 
-    # calculate FSC between the projections and the reconstructions
+    # calculate FSC between the ground truth volume and the reconstruction
     _fsc = fsc(cube, volume.float())
-
-    assert torch.all(_fsc[-5:] > 0.99)  # few low res shells at 0.98...
+    assert torch.all(_fsc[-10:] > 0.99)  # few low res shells at 0.98...
 
 
 def test_3d_2d_projection_backprojection_cycle_leading_dims(cube):
