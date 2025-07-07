@@ -1,8 +1,6 @@
 import einops
 import torch
-from torch_grid_utils import fftfreq_grid
-
-from .._dft_utils import _fftshift_2d, _rfft_shape
+from torch_grid_utils.fftfreq_grid import fftfreq_grid, fftshift_2d, rfft_shape
 
 
 def _central_slice_fftfreq_grid(
@@ -17,7 +15,7 @@ def _central_slice_fftfreq_grid(
 
     # get grid of same shape with all zeros, append as third coordinate
     if rfft is True:
-        zeros = torch.zeros(size=_rfft_shape((h, w)), dtype=grid.dtype, device=device)
+        zeros = torch.zeros(size=rfft_shape((h, w)), dtype=grid.dtype, device=device)
     else:
         zeros = torch.zeros(size=(h, w), dtype=grid.dtype, device=device)
     central_slice_grid, _ = einops.pack([zeros, grid], pattern="h w *")  # (h, w, 3)
@@ -27,7 +25,7 @@ def _central_slice_fftfreq_grid(
         central_slice_grid = einops.rearrange(
             central_slice_grid, "h w freq -> freq h w"
         )
-        central_slice_grid = _fftshift_2d(central_slice_grid, rfft=rfft)
+        central_slice_grid = fftshift_2d(central_slice_grid, rfft=rfft)
         central_slice_grid = einops.rearrange(
             central_slice_grid, "freq h w -> h w freq"
         )
