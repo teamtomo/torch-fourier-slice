@@ -1,8 +1,9 @@
 import einops
 import torch
+from torch_grid_utils.fftfreq_grid import rfft_shape
 from torch_image_interpolation import insert_into_image_3d
 
-from .._dft_utils import _fftfreq_to_dft_coordinates, _rfft_shape
+from .._dft_utils import _fftfreq_to_dft_coordinates
 from .._grids import _central_slice_fftfreq_grid
 
 
@@ -76,7 +77,7 @@ def insert_central_slices_rfft_3d(
 
     # initialise output volume and volume for keeping track of weights
     dft_3d = torch.zeros(
-        size=_rfft_shape(volume_shape),
+        size=rfft_shape(volume_shape),
         dtype=ft_dtype,
         device=device,
     )
@@ -169,7 +170,7 @@ def insert_central_slices_rfft_3d_multichannel(
     )
 
     # initialise output volume and volume for keeping track of weights
-    volume_dft_shape = _rfft_shape(volume_shape)
+    volume_dft_shape = rfft_shape(volume_shape)
     dft_3d = torch.zeros(
         size=(channels, *volume_dft_shape),
         dtype=ft_dtype,
