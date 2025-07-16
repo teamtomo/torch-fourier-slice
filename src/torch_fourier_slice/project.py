@@ -41,7 +41,7 @@ def project_3d_to_2d(
     projections: torch.Tensor
         `(..., d, d)` array of projection images.
     """
-    d, h, w = volume.shape[-3:]
+    d, h, w = tuple(volume.shape[-3:])
     if len({d, h, w}) != 1:  # use set to remove duplicates
         raise ValueError("all dimensions of volume must be equal.")
 
