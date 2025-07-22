@@ -94,7 +94,7 @@ def test_3d_2d_projection_backprojection_cycle(cube, device):
     assert device in str(volume.device)
 
     # calculate FSC between the ground truth volume and the reconstruction
-    _fsc = fsc(cube, volume.float())
+    _fsc = fsc(cube.to("cpu"), volume.float().to("cpu"))
     assert torch.all(_fsc[-10:] > 0.99)  # few low res shells at 0.98...
 
 
@@ -152,10 +152,8 @@ def test_3d_to_2d_projection_backprojection_cycle_multichannel(device):
 
 
 @pytest.mark.parametrize(
-    "dtype",
-    [torch.float32, torch.float64],
-    "device",
-    DEVICES,
+    "dtype, device",
+    ((p0, p1) for p0, p1 in zip([torch.float32, torch.float64], DEVICES)),
 )
 def test_dtypes_slice_insertion(dtype, device):
     images = torch.rand((10, 28, 28), dtype=dtype, device=device)
