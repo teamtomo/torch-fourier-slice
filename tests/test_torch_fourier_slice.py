@@ -94,6 +94,7 @@ def test_3d_2d_projection_backprojection_cycle(cube, device):
     assert device in str(volume.device)
 
     # calculate FSC between the ground truth volume and the reconstruction
+    # move to cpu as a workaround for FSC not running on GPU
     _fsc = fsc(cube.to("cpu"), volume.float().to("cpu"))
     assert torch.all(_fsc[-10:] > 0.99)  # few low res shells at 0.98...
 
