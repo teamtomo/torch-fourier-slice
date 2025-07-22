@@ -79,7 +79,7 @@ repository = "https://github.com/alisterburt/torch-fourier-slice"
 # https://docs.astral.sh/ruff
 [tool.ruff]
 line-length = 88
-target-version = "py39"
+target-version = "py313"
 src = ["src"]
 
 # https://docs.astral.sh/ruff/rules
