@@ -50,7 +50,7 @@ jobs:
 
       - name: Run Tests
         run: |
-          COVERAGE_FILE=.coverage.${{ matrix.python-version }} pytest --color=yes --cov --cov-report=xml --cov-report=term-missing
+          CUDA_VISIBLE_DEVICES=0,1 COVERAGE_FILE=.coverage.${{ matrix.python-version }} pytest --color=yes --cov --cov-report=xml --cov-report=term-missing
 
       - name: Upload coverage
         # upload the coverage artifact from the runner
