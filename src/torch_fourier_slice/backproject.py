@@ -70,8 +70,8 @@ def backproject_2d_to_3d(
     )
 
     # reweight reconstruction
-    valid_weights = weights > 1e-3
-    dft[valid_weights] /= weights[valid_weights]
+    weights = torch.clamp(weights, min=1.0)
+    dft /= weights
 
     # back to real space
     dft = torch.fft.ifftshift(dft, dim=(-3, -2))  # actual ifftshift
