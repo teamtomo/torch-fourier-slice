@@ -69,9 +69,11 @@ def backproject_2d_to_3d(
         zyx_matrices=zyx_matrices,
     )
 
-    # reweight reconstruction
     weights = torch.clamp(weights, min=1.0)
     dft /= weights
+    # reweight reconstruction
+    # valid_weights = weights > 1e-3
+    # dft[valid_weights] /= weights[valid_weights]
 
     # back to real space
     dft = torch.fft.ifftshift(dft, dim=(-3, -2))  # actual ifftshift
