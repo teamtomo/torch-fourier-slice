@@ -69,9 +69,11 @@ def backproject_2d_to_3d(
         zyx_matrices=zyx_matrices,
     )
 
-    # reweight reconstruction
-    valid_weights = weights > 1e-3
-    dft[valid_weights] /= weights[valid_weights]
+    # Weight are clamped to 1 to prevent division by very small weights. As
+    # small weights are mainly present at high frequencies (as there is no
+    # slice overlap) this will lead to high frequency noise.
+    weights = torch.clamp(weights, min=1.0)
+    dft /= weights
 
     # back to real space
     dft = torch.fft.ifftshift(dft, dim=(-3, -2))  # actual ifftshift
@@ -152,9 +154,11 @@ def backproject_2d_to_3d_multichannel(
         zyx_matrices=zyx_matrices,
     )
 
-    # reweight reconstruction
-    valid_weights = weights > 1e-3
-    dft[..., valid_weights] /= weights[..., valid_weights]
+    # Weight are clamped to 1 to prevent division by very small weights. As
+    # small weights are mainly present at high frequencies (as there is no
+    # slice overlap) this will lead to high frequency noise.
+    weights = torch.clamp(weights, min=1.0)
+    dft /= weights
 
     # back to real space
     dft = torch.fft.ifftshift(dft, dim=(-3, -2))  # actual ifftshift
