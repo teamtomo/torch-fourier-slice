@@ -50,6 +50,7 @@ def _calculate_ewald_z(
     """
     energy_ev = voltage_kv * 1e3
     wavelength = calculate_relativistic_electron_wavelength(energy=energy_ev)
+    wavelength= wavelength*1e10 # convert to Angstroms
     k_xy_clamped = torch.clamp(k_xy, min=eps)
     delta_z = wavelength * (k_xy_clamped**2) / 2.0
     if flip_sign:
