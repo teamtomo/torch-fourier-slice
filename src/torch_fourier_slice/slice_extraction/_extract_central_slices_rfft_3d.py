@@ -3,7 +3,7 @@ import torch
 from torch_image_interpolation import sample_image_3d
 
 from .._dft_utils import _fftfreq_to_dft_coordinates
-from .._grids import _central_slice_fftfreq_grid
+from .._grids import _apply_ewald_curvature, _central_slice_fftfreq_grid
 
 
 def extract_central_slices_rfft_3d(
@@ -12,8 +12,18 @@ def extract_central_slices_rfft_3d(
     rotation_matrices: torch.Tensor,  # (..., 3, 3)
     fftfreq_max: float | None = None,
     zyx_matrices: bool = False,
+    apply_ewald_curvature: bool = False,
+    ewald_voltage_kv: float = 300.0,  # in kV
+    ewald_flip_sign: bool = False,  # if True, flip the sign of the Ewald curvature
+    ewald_px_size: float = 1.0,  # in Angstroms / pixel
 ) -> torch.Tensor:
-    """Extract central slice from an fftshifted rfft."""
+    """Extract central slice from an fftshifted rfft.
+    
+    If `apply_ewald_curvature` is True, the central slice is bent into a curved
+    surface following an Ewald sphere. Wavelength is computed from `ewald_voltage_kv`
+    using relativistic electron wavelength formula. If False (default), a flat
+    central slice is used.
+    """
     rotation_matrices = rotation_matrices.to(torch.float32)
 
     # generate grid of DFT sample frequencies for a central slice spanning the xy-plane
@@ -23,6 +33,15 @@ def extract_central_slices_rfft_3d(
         fftshift=True,
         device=volume_rfft.device,
     )  # (h, w, 3) zyx coords
+
+    # Optionally, bend the central slice into a curved surface (Ewald sphere)
+    if apply_ewald_curvature:
+        freq_grid = _apply_ewald_curvature(
+            freq_grid=freq_grid,
+            voltage_kv=ewald_voltage_kv,
+            flip_sign=ewald_flip_sign,
+            px_size=ewald_px_size,
+        )
 
     # keep track of some shapes
     stack_shape = tuple(rotation_matrices.shape[:-2])

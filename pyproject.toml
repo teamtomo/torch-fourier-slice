@@ -40,6 +40,7 @@ dependencies = [
     "einops",
     "torch_image_interpolation>=0.0.7",
     "torch_grid_utils>=0.0.8",
+    "torch-fourier-filter",
 ]
 
 # https://peps.python.org/pep-0621/#dependencies-optional-dependencies
