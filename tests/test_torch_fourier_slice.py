@@ -154,7 +154,7 @@ def test_3d_to_2d_projection_backprojection_cycle_multichannel(device):
 
 @pytest.mark.parametrize(
     "dtype, device",
-    ((p0, p1) for p0, p1 in zip([torch.float32, torch.float64], DEVICES)),
+    ((p0, p1) for p0, p1 in zip([torch.float32, torch.float64], DEVICES, strict=False)),
 )
 def test_dtypes_slice_insertion(dtype, device):
     images = torch.rand((10, 28, 28), dtype=dtype, device=device)
@@ -166,3 +166,208 @@ def test_dtypes_slice_insertion(dtype, device):
     result = backproject_2d_to_3d(images, rotation_matrices)
     assert result.dtype == dtype
     assert device in str(result.device)
+
+
+@pytest.mark.parametrize(
+    "device",
+    DEVICES,
+)
+def test_backprojection_friedel_symmetry_x0_plane(cube, device):
+    """Test that the x=0 plane in the Fourier transform has Friedel symmetry.
+
+    For a real-valued volume, its Fourier transform must satisfy:
+    F(x, y, z) = conj(F(-x, -y, -z))
+
+    In the rfft representation, the x=0 plane should satisfy:
+    F(0, y, z) = conj(F(0, -y, -z))
+
+    This test uses rotations that specifically insert values into the x=0 plane
+    to ensure Friedel symmetry is properly enforced during interpolation.
+    """
+
+    # Create specific rotation matrices that will insert into x=0 plane
+    # 90-degree rotation around y-axis: maps xy-plane to zy-plane (x=0)
+    rot_y_90 = torch.tensor(
+        [
+            [0, 0, 1],  # x' = z
+            [0, 1, 0],  # y' = y
+            [-1, 0, 0],  # z' = -x
+        ],
+        dtype=torch.float32,
+        device=device,
+    )
+
+    # 90-degree rotation around z-axis
+    rot_z_90 = torch.tensor(
+        [
+            [0, -1, 0],  # x' = -y
+            [1, 0, 0],  # y' = x
+            [0, 0, 1],  # z' = z
+        ],
+        dtype=torch.float32,
+        device=device,
+    )
+
+    # Combine targeted rotations with some random ones
+    random_rotations = torch.tensor(
+        special_ortho_group.rvs(dim=3, size=20, random_state=42),
+        dtype=torch.float32,
+        device=device,
+    )
+
+    rotation_matrices = torch.cat(
+        [rot_y_90.unsqueeze(0), rot_z_90.unsqueeze(0), random_rotations], dim=0
+    )
+
+    projections = project_3d_to_2d(
+        volume=cube.to(device),
+        rotation_matrices=rotation_matrices,
+    )
+
+    # Reconstruct volume
+    volume = backproject_2d_to_3d(
+        images=projections,
+        rotation_matrices=rotation_matrices,
+    )
+
+    # Take the rfft of the reconstructed volume
+    volume_fft = torch.fft.rfftn(volume, dim=(-3, -2, -1))
+    volume_fft = torch.fft.fftshift(volume_fft, dim=(-3, -2))  # shift z and y, not x
+
+    # Extract the x=0 plane (first index in the rfft output)
+    x0_plane = volume_fft[:, :, 0]  # shape (d, d)
+
+    # For Friedel symmetry: F(0, y, z) = conj(F(0, -y, -z))
+    d = x0_plane.shape[0]
+
+    # Calculate the maximum asymmetry
+    max_error = 0.0
+    max_rel_error = 0.0
+    max_error_pos = None
+
+    for z in range(d):
+        for y in range(d):
+            # Skip the DC component at center
+            if z == d // 2 and y == d // 2:
+                continue
+
+            # Calculate mirrored indices
+            z_mirror = (d - z) % d
+            y_mirror = (d - y) % d
+
+            # Skip if we're checking the same point twice (only check unique pairs)
+            if z > z_mirror or (z == z_mirror and y >= y_mirror):
+                continue
+
+            # Check Friedel symmetry
+            val = x0_plane[z, y]
+            val_mirror_conj = torch.conj(x0_plane[z_mirror, y_mirror])
+
+            # Calculate both absolute and relative error
+            abs_error = torch.abs(val - val_mirror_conj).item()
+            rel_error = abs_error / (torch.abs(val).item() + 1e-10)
+
+            if abs_error > max_error:
+                max_error = abs_error
+                max_rel_error = rel_error
+                max_error_pos = (y, z, val, x0_plane[z_mirror, y_mirror])
+
+    # Print diagnostic info
+    if max_error_pos:
+        y, z, val, val_mirror = max_error_pos
+        print(f"\nMax Friedel symmetry absolute error: {max_error:.9f}")
+        print(f"Max relative error: {max_rel_error:.9f}")
+        print(
+            f"At position (0, {y}, {z}): "
+            f"{val} vs conj({val_mirror}) = {torch.conj(val_mirror)}"
+        )
+
+    # For float32 with proper Friedel symmetry enforcement,
+    # we expect machine-precision-level symmetry (< 1e-6 relative error)
+    assert max_rel_error < 1e-6, (
+        f"Friedel symmetry violated: max relative error = "
+        f"{max_rel_error:.9f} at (0, {max_error_pos[0]}, {max_error_pos[1]})"
+    )
+
+
+@pytest.mark.parametrize(
+    "device",
+    DEVICES,
+)
+def test_backprojection_single_x0_insertion_friedel_symmetry(cube, device):
+    """Test Friedel symmetry with a single projection that inserts directly into x=0.
+
+    This is the most extreme test: with only one projection oriented to insert
+    into the x=0 plane, we can verify that the conjugate pairs are properly inserted.
+    """
+    # 90-degree rotation around y-axis: maps xy-plane central slice to x=0 plane
+    rot_y_90 = torch.tensor(
+        [
+            [
+                [0, 0, 1],  # x' = z
+                [0, 1, 0],  # y' = y
+                [-1, 0, 0],  # z' = -x
+            ]
+        ],
+        dtype=torch.float32,
+        device=device,
+    )
+
+    projections = project_3d_to_2d(
+        volume=cube.to(device),
+        rotation_matrices=rot_y_90,
+    )
+
+    # Reconstruct from just this single projection
+    volume = backproject_2d_to_3d(
+        images=projections,
+        rotation_matrices=rot_y_90,
+    )
+
+    # Take the rfft
+    volume_fft = torch.fft.rfftn(volume, dim=(-3, -2, -1))
+    volume_fft = torch.fft.fftshift(volume_fft, dim=(-3, -2))
+
+    # Extract x=0 plane
+    x0_plane = volume_fft[:, :, 0]
+    d = x0_plane.shape[0]
+
+    # Check Friedel symmetry point by point
+    max_error = 0.0
+    max_rel_error = 0.0
+    errors = []
+
+    for z in range(d):
+        for y in range(d):
+            if z == d // 2 and y == d // 2:
+                continue
+
+            z_mirror = (d - z) % d
+            y_mirror = (d - y) % d
+
+            if z > z_mirror or (z == z_mirror and y >= y_mirror):
+                continue
+
+            val = x0_plane[z, y]
+            val_mirror_conj = torch.conj(x0_plane[z_mirror, y_mirror])
+
+            abs_error = torch.abs(val - val_mirror_conj).item()
+            rel_error = abs_error / (torch.abs(val).item() + 1e-10)
+
+            errors.append(rel_error)
+            if rel_error > max_rel_error:
+                max_rel_error = rel_error
+                max_error = abs_error
+
+    print("\nSingle x=0 insertion test:")
+    print(f"Max absolute error: {max_error:.9f}")
+    print(f"Max relative error: {max_rel_error:.9f}")
+    print(f"Mean relative error: {sum(errors)/len(errors) if errors else 0:.9f}")
+
+    # With explicit Friedel enforcement, even a single projection
+    # should maintain symmetry
+    # Use 5e-6 tolerance to account for float32 precision on GPU
+    assert max_rel_error < 5e-6, (
+        f"Friedel symmetry violated with single x=0 insertion: "
+        f"max relative error = {max_rel_error:.9f}"
+    )

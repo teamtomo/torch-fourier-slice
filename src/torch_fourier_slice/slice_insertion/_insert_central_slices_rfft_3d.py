@@ -345,4 +345,74 @@ def _insert_linear_3d(
     )
     weights.index_put_(indices=(idx_z, idx_y, idx_x), values=w, accumulate=True)
 
+    # Enforce Friedel symmetry for insertions into x=0 plane
+    # For any value inserted at (z, y, 0), also insert conj(value) at (d-z, d-y, 0)
+    d, h, w_dim = weights.shape  # d, h, w dimensions of the volume
+
+    # Find which corners are on the x=0 plane
+    # idx_x has shape (b, 1, 2, 2, 2) after rearranging
+    x0_mask = idx_x == 0  # (b, 1, 2, 2, 2) boolean mask
+
+    if torch.any(x0_mask):
+        # Calculate mirrored indices for Friedel symmetry
+        # Mirror: (z, y, 0) -> ((d - z) % d, (d - y) % d, 0)
+        idx_z_mirror = (d - idx_z) % d
+        idx_y_mirror = (h - idx_y) % h
+
+        # Only insert conjugate at mirrored positions when original is at x=0
+        # Exclude the origin (d//2, h//2, 0) to avoid double insertion at DC
+        # Note: after fftshift, DC is at (d//2, h//2)
+        is_dc = (idx_z == d // 2) & (idx_y == h // 2) & (idx_x == 0)
+        insert_conjugate_mask = x0_mask & ~is_dc
+
+        if torch.any(insert_conjugate_mask):
+            # Create conjugated data
+            data_conj = torch.conj(data)
+
+            # Expand all tensors to (b, c, 2, 2, 2) for consistent masking
+            insert_conjugate_mask_expanded = einops.repeat(
+                insert_conjugate_mask, "b 1 z y x -> b c z y x", c=c
+            )
+            idx_c_expanded = einops.repeat(
+                idx_c, "1 c 1 1 1 -> b c z y x", b=b, z=2, y=2, x=2
+            )
+            idx_z_mirror_expanded = einops.repeat(
+                idx_z_mirror, "b 1 z y x -> b c z y x", c=c
+            )
+            idx_y_mirror_expanded = einops.repeat(
+                idx_y_mirror, "b 1 z y x -> b c z y x", c=c
+            )
+            idx_x_expanded = einops.repeat(idx_x, "b 1 z y x -> b c z y x", c=c)
+            data_conj_expanded = einops.repeat(
+                data_conj, "b c 1 1 1 -> b c z y x", z=2, y=2, x=2
+            )
+            w_expanded = einops.repeat(w, "b 1 z y x -> b c z y x", c=c).to(
+                data_conj.dtype
+            )
+
+            # Insert conjugated, weighted data at mirrored positions
+            image.index_put_(
+                indices=(
+                    idx_c_expanded[insert_conjugate_mask_expanded],
+                    idx_z_mirror_expanded[insert_conjugate_mask_expanded],
+                    idx_y_mirror_expanded[insert_conjugate_mask_expanded],
+                    idx_x_expanded[insert_conjugate_mask_expanded],
+                ),
+                values=(data_conj_expanded * w_expanded)[
+                    insert_conjugate_mask_expanded
+                ],
+                accumulate=True,
+            )
+
+            # For weights, use original mask shape (no channel dimension)
+            weights.index_put_(
+                indices=(
+                    idx_z_mirror[insert_conjugate_mask],
+                    idx_y_mirror[insert_conjugate_mask],
+                    idx_x[insert_conjugate_mask],
+                ),
+                values=w[insert_conjugate_mask],
+                accumulate=True,
+            )
+
     return image, weights
