@@ -370,25 +370,14 @@ def _insert_linear_3d(
             data_conj = torch.conj(data)
 
             # Expand all tensors to (b, c, 2, 2, 2) for consistent masking
-            insert_conjugate_mask_expanded = einops.repeat(
-                insert_conjugate_mask, "b 1 z y x -> b c z y x", c=c
-            )
-            idx_c_expanded = einops.repeat(
-                idx_c, "1 c 1 1 1 -> b c z y x", b=b, z=2, y=2, x=2
-            )
-            idx_z_mirror_expanded = einops.repeat(
-                idx_z_mirror, "b 1 z y x -> b c z y x", c=c
-            )
-            idx_y_mirror_expanded = einops.repeat(
-                idx_y_mirror, "b 1 z y x -> b c z y x", c=c
-            )
-            idx_x_expanded = einops.repeat(idx_x, "b 1 z y x -> b c z y x", c=c)
-            data_conj_expanded = einops.repeat(
-                data_conj, "b c 1 1 1 -> b c z y x", z=2, y=2, x=2
-            )
-            w_expanded = einops.repeat(w, "b 1 z y x -> b c z y x", c=c).to(
-                data_conj.dtype
-            )
+            # Using expand() creates views (no memory copies) instead of repeat()
+            insert_conjugate_mask_expanded = insert_conjugate_mask.expand(b, c, 2, 2, 2)
+            idx_c_expanded = idx_c.expand(b, c, 2, 2, 2)
+            idx_z_mirror_expanded = idx_z_mirror.expand(b, c, 2, 2, 2)
+            idx_y_mirror_expanded = idx_y_mirror.expand(b, c, 2, 2, 2)
+            idx_x_expanded = idx_x.expand(b, c, 2, 2, 2)
+            data_conj_expanded = data_conj.expand(b, c, 2, 2, 2)
+            w_expanded = w.expand(b, c, 2, 2, 2).to(data_conj.dtype)
 
             # Insert conjugated, weighted data at mirrored positions
             image.index_put_(
