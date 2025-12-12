@@ -33,12 +33,22 @@ def insert_central_slices_rfft_3d(
             einops.reduce(freq_grid**2, "h w zyx -> h w", reduction="sum") ** 0.5
         )
         freq_grid_mask = normed_grid <= fftfreq_max
-        valid_coords = freq_grid[freq_grid_mask, ...]  # (b, zyx)
     else:
         freq_grid_mask = torch.ones(
             size=image_rfft.shape[-2:], dtype=torch.bool, device=device
         )
-        valid_coords = einops.rearrange(freq_grid, "h w zyx -> (h w) zyx")
+
+    # Only keep y >= 0 at x=0 to avoid
+    # double-inserting conjugate pairs (Friedel symmetry).
+    # In rfft, for x=0 plane: ft[z, y, 0] == conj(ft[-z, -y, 0])
+    # freq_grid shape is (h, w, 3) where last dim is zyx
+    x_coords = freq_grid[..., 2]  # (h, w)
+    y_coords = freq_grid[..., 1]  # (h, w)
+    friedel_redundant = (x_coords == 0) & (y_coords < 0)
+    # Combine with existing frequency mask
+    freq_grid_mask = freq_grid_mask & ~friedel_redundant
+
+    valid_coords = freq_grid[freq_grid_mask, ...]  # (b, zyx)
     valid_coords = einops.rearrange(valid_coords, "b zyx -> b zyx 1")
 
     # get (..., b) array of data at each coordinate from image rffts
@@ -124,12 +134,22 @@ def insert_central_slices_rfft_3d_multichannel(
             einops.reduce(freq_grid**2, "h w zyx -> h w", reduction="sum") ** 0.5
         )
         freq_grid_mask = normed_grid <= fftfreq_max
-        valid_coords = freq_grid[freq_grid_mask, ...]  # (b, zyx)
     else:
         freq_grid_mask = torch.ones(
             size=image_rfft.shape[-2:], dtype=torch.bool, device=device
         )
-        valid_coords = einops.rearrange(freq_grid, "h w zyx -> (h w) zyx")
+
+    # Only keep y >= 0 at x=0 to avoid
+    # double-inserting conjugate pairs (Friedel symmetry).
+    # In rfft, for x=0 plane: ft[z, y, 0] == conj(ft[-z, -y, 0])
+    # freq_grid shape is (h, w, 3) where last dim is zyx
+    x_coords = freq_grid[..., 2]  # (h, w)
+    y_coords = freq_grid[..., 1]  # (h, w)
+    friedel_redundant = (x_coords == 0) & (y_coords < 0)
+    # Combine with existing frequency mask
+    freq_grid_mask = freq_grid_mask & ~friedel_redundant
+
+    valid_coords = freq_grid[freq_grid_mask, ...]  # (b, zyx)
 
     valid_coords = einops.rearrange(valid_coords, "hw zyx -> hw zyx 1")
 
