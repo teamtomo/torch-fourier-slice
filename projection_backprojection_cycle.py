@@ -11,18 +11,19 @@ from torch_fourier_slice import backproject_2d_to_3d, project_3d_to_2d
 
 N_IMAGES = 1000
 torch.manual_seed(42)
+device = "cpu"
 
 # load a volume and normalise
 volume = torch.tensor(
     mrcfile.read("/home/marten/data/datasets/emdb/test/emd_48372_10A.mrc"),
-    device="cuda",
+    device=device,
 )
 volume -= torch.mean(volume)
 volume /= torch.std(volume)
 
 # rotation matrices for projection (operate on xyz column vectors)
 rotations = torch.tensor(
-    special_ortho_group.rvs(dim=3, size=N_IMAGES, random_state=42), device="cuda"
+    special_ortho_group.rvs(dim=3, size=N_IMAGES, random_state=42), device=device
 ).float()
 
 fig, ax = plt.subplots()
