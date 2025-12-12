@@ -233,7 +233,7 @@ def test_backprojection_friedel_symmetry_x0_plane(cube, device):
 
     # Insert directly into 3D DFT using low-level API
     volume_shape = (cube.shape[-1], cube.shape[-1], cube.shape[-1])
-    volume_fft, weights = insert_central_slices_rfft_3d(
+    volume_fft, _ = insert_central_slices_rfft_3d(
         image_rfft=images,
         volume_shape=volume_shape,
         rotation_matrices=rotation_matrices,
