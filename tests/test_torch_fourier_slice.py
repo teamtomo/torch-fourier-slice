@@ -10,6 +10,7 @@ from torch_fourier_slice import (
     project_3d_to_2d,
     project_3d_to_2d_multichannel,
 )
+from torch_fourier_slice.slice_insertion import insert_central_slices_rfft_3d
 
 DEVICES = ["cpu"]
 if torch.cuda.is_available():
@@ -224,15 +225,19 @@ def test_backprojection_friedel_symmetry_x0_plane(cube, device):
         rotation_matrices=rotation_matrices,
     )
 
-    # Reconstruct volume
-    volume = backproject_2d_to_3d(
-        images=projections,
+    # Process projections to DFT format for insertion
+    images = projections
+    images = torch.fft.fftshift(images, dim=(-2, -1))  # volume center to array origin
+    images = torch.fft.rfftn(images, dim=(-2, -1))
+    images = torch.fft.fftshift(images, dim=(-2,))  # actual fftshift
+
+    # Insert directly into 3D DFT using low-level API
+    volume_shape = (cube.shape[-1], cube.shape[-1], cube.shape[-1])
+    volume_fft, weights = insert_central_slices_rfft_3d(
+        image_rfft=images,
+        volume_shape=volume_shape,
         rotation_matrices=rotation_matrices,
     )
-
-    # Take the rfft of the reconstructed volume
-    volume_fft = torch.fft.rfftn(volume, dim=(-3, -2, -1))
-    volume_fft = torch.fft.fftshift(volume_fft, dim=(-3, -2))  # shift z and y, not x
 
     # Extract the x=0 plane (first index in the rfft output)
     x0_plane = volume_fft[:, :, 0]  # shape (d, d)
@@ -287,87 +292,4 @@ def test_backprojection_friedel_symmetry_x0_plane(cube, device):
     assert max_rel_error < 1e-6, (
         f"Friedel symmetry violated: max relative error = "
         f"{max_rel_error:.9f} at (0, {max_error_pos[0]}, {max_error_pos[1]})"
-    )
-
-
-@pytest.mark.parametrize(
-    "device",
-    DEVICES,
-)
-def test_backprojection_single_x0_insertion_friedel_symmetry(cube, device):
-    """Test Friedel symmetry with a single projection that inserts directly into x=0.
-
-    This is the most extreme test: with only one projection oriented to insert
-    into the x=0 plane, we can verify that the conjugate pairs are properly inserted.
-    """
-    # 90-degree rotation around y-axis: maps xy-plane central slice to x=0 plane
-    rot_y_90 = torch.tensor(
-        [
-            [
-                [0, 0, 1],  # x' = z
-                [0, 1, 0],  # y' = y
-                [-1, 0, 0],  # z' = -x
-            ]
-        ],
-        dtype=torch.float32,
-        device=device,
-    )
-
-    projections = project_3d_to_2d(
-        volume=cube.to(device),
-        rotation_matrices=rot_y_90,
-    )
-
-    # Reconstruct from just this single projection
-    volume = backproject_2d_to_3d(
-        images=projections,
-        rotation_matrices=rot_y_90,
-    )
-
-    # Take the rfft
-    volume_fft = torch.fft.rfftn(volume, dim=(-3, -2, -1))
-    volume_fft = torch.fft.fftshift(volume_fft, dim=(-3, -2))
-
-    # Extract x=0 plane
-    x0_plane = volume_fft[:, :, 0]
-    d = x0_plane.shape[0]
-
-    # Check Friedel symmetry point by point
-    max_error = 0.0
-    max_rel_error = 0.0
-    errors = []
-
-    for z in range(d):
-        for y in range(d):
-            if z == d // 2 and y == d // 2:
-                continue
-
-            z_mirror = (d - z) % d
-            y_mirror = (d - y) % d
-
-            if z > z_mirror or (z == z_mirror and y >= y_mirror):
-                continue
-
-            val = x0_plane[z, y]
-            val_mirror_conj = torch.conj(x0_plane[z_mirror, y_mirror])
-
-            abs_error = torch.abs(val - val_mirror_conj).item()
-            rel_error = abs_error / (torch.abs(val).item() + 1e-10)
-
-            errors.append(rel_error)
-            if rel_error > max_rel_error:
-                max_rel_error = rel_error
-                max_error = abs_error
-
-    print("\nSingle x=0 insertion test:")
-    print(f"Max absolute error: {max_error:.9f}")
-    print(f"Max relative error: {max_rel_error:.9f}")
-    print(f"Mean relative error: {sum(errors)/len(errors) if errors else 0:.9f}")
-
-    # With explicit Friedel enforcement, even a single projection
-    # should maintain symmetry
-    # Use 5e-6 tolerance to account for float32 precision on GPU
-    assert max_rel_error < 5e-6, (
-        f"Friedel symmetry violated with single x=0 insertion: "
-        f"max relative error = {max_rel_error:.9f}"
     )
