@@ -15,6 +15,7 @@ def project_3d_to_2d(
     pad_factor: float = 2.0,
     fftfreq_max: float | None = None,
     zyx_matrices: bool = False,
+    transform_matrix: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """Project a cubic volume by sampling a central slice through its DFT.
 
@@ -35,6 +36,11 @@ def project_3d_to_2d(
     zyx_matrices: bool
         Set to True if the provided matrices left multiply zyx column vectors
         instead of xyz column vectors.
+    transform_matrix: torch.Tensor | None
+        `(2, 2)` anisotropic magnification matrix in real space (yx ordering).
+        If provided, applies the transformation in Fourier space to the extracted
+        slices. The transformation is applied using A^{-T} and includes proper
+        scaling by 1/|det(A)| to preserve intensity.
 
     Returns
     -------
@@ -78,6 +84,7 @@ def project_3d_to_2d(
         rotation_matrices=rotation_matrices,
         fftfreq_max=fftfreq_max,
         zyx_matrices=zyx_matrices,
+        transform_matrix=transform_matrix,
     )  # (..., h, w) rfft stack
 
     # transform back to real space
@@ -99,6 +106,7 @@ def project_3d_to_2d_multichannel(
     pad_factor: float = 2.0,
     fftfreq_max: float | None = None,
     zyx_matrices: bool = False,
+    transform_matrix: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """Project a multichannel cubic volume with the same rotations.
 
@@ -119,6 +127,11 @@ def project_3d_to_2d_multichannel(
     zyx_matrices: bool
         Set to True if the provided matrices left multiply zyx column vectors
         instead of xyz column vectors.
+    transform_matrix: torch.Tensor | None
+        `(2, 2)` anisotropic magnification matrix in real space (yx ordering).
+        If provided, applies the transformation in Fourier space to the extracted
+        slices. The transformation is applied using A^{-T} and includes proper
+        scaling by 1/|det(A)| to preserve intensity.
 
     Returns
     -------
@@ -162,6 +175,7 @@ def project_3d_to_2d_multichannel(
         rotation_matrices=rotation_matrices,
         fftfreq_max=fftfreq_max,
         zyx_matrices=zyx_matrices,
+        transform_matrix=transform_matrix,
     )  # (..., h, w) rfft stack
 
     # transform back to real space
