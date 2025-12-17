@@ -43,7 +43,9 @@ ORIENTATION_SYMMETRY_PAIRS = [
 ]
 
 
-def setup_slice_volume() -> torch.Tensor:
+def setup_slice_volume(
+    pixel_spacing: float = 1.0, volume_dim: int = 128
+) -> torch.Tensor:
     """Downloads and prepares a test volume from a set PDB file using ttsim3D."""
     tmp_dir = os.path.join(os.path.dirname(__file__), "tmp")
     os.makedirs(tmp_dir, exist_ok=True)
@@ -69,8 +71,8 @@ def setup_slice_volume() -> torch.Tensor:
     # Instantiate the simulator
     sim = Simulator(
         pdb_filepath=pdb_path,
-        pixel_spacing=1.00,  # Angstroms
-        volume_shape=(128, 128, 128),
+        pixel_spacing=pixel_spacing,  # Angstroms
+        volume_shape=(volume_dim, volume_dim, volume_dim),
         b_factor_scaling=1.0,
         additional_b_factor=0.0,
         simulator_config=sim_conf,
@@ -136,24 +138,107 @@ def test_extract_central_slices_rfft_3d_symmetry_cases(
     left_rot = torch.from_numpy(left_rot).to(device)
     right_rot = torch.from_numpy(right_rot).to(device)
 
-    # Make close-to-zero elements exactly zero to avoid numerical issues
-    near_zero_tol = 1e-10
-    left_rot[torch.abs(left_rot) < near_zero_tol] = 0.0
-    right_rot[torch.abs(right_rot) < near_zero_tol] = 0.0
-
     # Extract slices for both orientations
     left_slice = extract_central_slices_rfft_3d(
         volume_rfft=volume_rfft,
         image_shape=volume.shape,
-        rotation_matrices=left_rot.unsqueeze(0),
-    )[0]
+        rotation_matrices=left_rot,
+    )
     right_slice = extract_central_slices_rfft_3d(
         volume_rfft=volume_rfft,
         image_shape=volume.shape,
-        rotation_matrices=right_rot.unsqueeze(0),
-    )[0]
+        rotation_matrices=right_rot,
+    )
 
     # Check that the slices are conjugates of each other
     assert torch.allclose(
         left_slice, torch.conj(right_slice), atol=1e-6
     ), f"Slices for angles {left_angles} and {right_angles} are not conjugates."
+
+
+@pytest.mark.parametrize("device", DEVICES)
+@pytest.mark.parametrize("angle_pair", ORIENTATION_SYMMETRY_PAIRS)
+def test_extract_central_slices_rfft_3d_symmetry_cases_large_volume(
+    device: str, angle_pair: tuple[list[float], list[float]]
+):
+    """Tests extract_central_slices_rfft_3d on symmetry-related orientations."""
+    volume = setup_slice_volume().to(device)
+
+    # Prepare volume for slicing in RFFT
+    volume_rfft = torch.fft.fftshift(volume, dim=(-3, -2, -1))
+    volume_rfft = torch.fft.rfftn(volume_rfft, dim=(-3, -2, -1))
+    volume_rfft = torch.fft.fftshift(volume_rfft, dim=(-3, -2))
+
+    left_angles, right_angles = angle_pair
+
+    left_rot = Rotation.from_euler("ZYZ", left_angles, degrees=True).as_matrix()
+    right_rot = Rotation.from_euler("ZYZ", right_angles, degrees=True).as_matrix()
+
+    left_rot = torch.from_numpy(left_rot).to(device)
+    right_rot = torch.from_numpy(right_rot).to(device)
+
+    d = volume.shape[0] * 4
+    image_shape = (d, d, d)
+
+    # Extract slices for both orientations
+    left_slice = extract_central_slices_rfft_3d(
+        volume_rfft=volume_rfft,
+        image_shape=image_shape,
+        rotation_matrices=left_rot,
+    )
+    right_slice = extract_central_slices_rfft_3d(
+        volume_rfft=volume_rfft,
+        image_shape=image_shape,
+        rotation_matrices=right_rot,
+    )
+
+    # Check that the slices are conjugates of each other
+    assert torch.allclose(
+        left_slice, torch.conj(right_slice), atol=1e-6
+    ), f"Slices for angles {left_angles} and {right_angles} are not conjugates."
+
+
+@pytest.mark.parametrize("device", DEVICES)
+def test_extract_central_slices_rfft_3d_symmetry_random_angles(device: str):
+    """Generates and tests random angle pairs that should produce conjugate slices."""
+    NUM_ORIENTATIONS = 100
+
+    left_angles = torch.zeros((NUM_ORIENTATIONS, 3))
+    left_angles[:, 0] = torch.rand(NUM_ORIENTATIONS) * 360
+    left_angles[:, 1] = torch.rand(NUM_ORIENTATIONS) * 180
+    left_angles[:, 2] = torch.rand(NUM_ORIENTATIONS) * 360
+
+    volume = setup_slice_volume().to(device)
+
+    # Prepare volume for slicing in RFFT
+    volume_rfft = torch.fft.fftshift(volume, dim=(-3, -2, -1))
+    volume_rfft = torch.fft.rfftn(volume_rfft, dim=(-3, -2, -1))
+    volume_rfft = torch.fft.fftshift(volume_rfft, dim=(-3, -2))
+
+    # Angles on the right side are rotated 180 degrees for in-plane rotation
+    right_offset = Rotation.from_euler("ZYZ", [0, 0, 180], degrees=True).as_matrix()
+
+    for i in range(NUM_ORIENTATIONS):
+        left_rot = Rotation.from_euler(
+            "ZYZ", left_angles[i].numpy(), degrees=True
+        ).as_matrix()
+        right_rot = left_rot @ right_offset
+
+        left_rot = torch.from_numpy(left_rot).to(device)
+        right_rot = torch.from_numpy(right_rot).to(device)
+
+        # Extract slices for both orientations
+        left_slice = extract_central_slices_rfft_3d(
+            volume_rfft=volume_rfft,
+            image_shape=volume.shape,
+            rotation_matrices=left_rot,
+        )
+        right_slice = extract_central_slices_rfft_3d(
+            volume_rfft=volume_rfft,
+            image_shape=volume.shape,
+            rotation_matrices=right_rot,
+        )
+
+        assert torch.allclose(
+            left_slice, torch.conj(right_slice), atol=1e-6
+        ), "Slices are not conjugates."
