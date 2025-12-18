@@ -213,8 +213,6 @@ def extract_central_slices_rfft_3d(
     # take complex conjugate of values from redundant half transform
     samples[conjugate_mask] = torch.conj(samples[conjugate_mask])
 
-    # samples[..., x0_negative_freqs] = torch.conj(samples[..., x0_positive_freqs])
-
     # insert samples back into DFTs
     projection_image_dfts = torch.zeros(
         output_shape, device=volume_rfft.device, dtype=volume_rfft.dtype

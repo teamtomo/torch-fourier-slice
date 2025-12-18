@@ -7,21 +7,9 @@ import torch
 import urllib3
 from scipy.spatial.transform import Rotation
 from scipy.stats import special_ortho_group
+from ttsim3d.models import Simulator, SimulatorConfig
 
 from torch_fourier_slice.slice_extraction import extract_central_slices_rfft_3d
-
-# Guard import for ttsim3d dependency
-try:
-    from ttsim3d.models import Simulator, SimulatorConfig
-except ImportError:
-    Simulator = None
-    SimulatorConfig = None
-
-pytest.mark.skipif(
-    Simulator is None,
-    reason="ttsim3d is not installed",
-)
-
 
 DEVICES = ["cpu"]
 if torch.cuda.is_available():
