@@ -1,5 +1,7 @@
+import numpy as np
 import pytest
 import torch
+from scipy.spatial.transform import Rotation
 from scipy.stats import special_ortho_group
 from torch_fourier_shell_correlation import fsc
 
@@ -185,9 +187,14 @@ def test_backprojection_friedel_symmetry_x0_plane(cube, device):
     This test uses rotations that specifically insert values into the x=0 plane
     to ensure Friedel symmetry is properly enforced during interpolation.
     """
+    # 0 and 180 rotation of the inserted slices
+    # this checks for small inconsistencies of the rotation matrices
+    angles = np.array([[0.0, 0.0], [0.0, 0.0], [0.0, 180.0]]).T  # (b, 3)
+    rot_x = Rotation.from_euler("ZYZ", angles=angles, degrees=True)
+    rot_x = torch.tensor(rot_x.as_matrix(), device=device)
 
     # Create specific rotation matrices that will insert into x=0 plane
-    # 90-degree rotation around y-axis: maps xy-plane to zy-plane (x=0)
+    # and need correctly handle Friedel symmetric insertion
     rot_y_90 = torch.tensor(
         [
             [0, 0, 1],  # x' = z
@@ -211,13 +218,14 @@ def test_backprojection_friedel_symmetry_x0_plane(cube, device):
 
     # Combine targeted rotations with some random ones
     random_rotations = torch.tensor(
-        special_ortho_group.rvs(dim=3, size=20, random_state=42),
+        special_ortho_group.rvs(dim=3, size=4, random_state=42),
         dtype=torch.float32,
         device=device,
     )
 
+    # cat all test matrices
     rotation_matrices = torch.cat(
-        [rot_y_90.unsqueeze(0), rot_z_90.unsqueeze(0), random_rotations], dim=0
+        [rot_x, rot_y_90.unsqueeze(0), rot_z_90.unsqueeze(0), random_rotations], dim=0
     )
 
     projections = project_3d_to_2d(
