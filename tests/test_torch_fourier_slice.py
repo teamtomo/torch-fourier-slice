@@ -285,6 +285,7 @@ def test_backprojection_friedel_symmetry_x0_plane(cube, device):
 
     # Check mean error per pair is small
     mean_error = total_error / num_pairs if num_pairs > 0 else 0.0
+    print(mean_error)
     assert (
-        mean_error < 1e-4
+        mean_error < 1e-5
     ), f"Friedel symmetry violated: mean error = {mean_error:.9f}"
