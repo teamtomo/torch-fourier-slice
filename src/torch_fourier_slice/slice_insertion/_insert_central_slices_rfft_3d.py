@@ -97,7 +97,7 @@ def insert_central_slices_rfft_3d(
     )
 
     # insert data into 3D DFT
-    dft_3d, weights = _insert_into_image_3d(
+    dft_3d, weights = _insert_into_3d_dft(
         values=valid_data,
         coordinates=rotated_coordinates,
         image=dft_3d,
@@ -201,7 +201,7 @@ def insert_central_slices_rfft_3d_multichannel(
     )
 
     # insert data into 3D DFT
-    dft_3d, weights = _insert_into_image_3d(
+    dft_3d, weights = _insert_into_3d_dft(
         values=valid_data,
         coordinates=rotated_coordinates,
         image=dft_3d,
@@ -210,7 +210,7 @@ def insert_central_slices_rfft_3d_multichannel(
     return dft_3d, weights
 
 
-def _insert_into_image_3d(
+def _insert_into_3d_dft(
     values: torch.Tensor,
     coordinates: torch.Tensor,
     image: torch.Tensor,
@@ -275,7 +275,7 @@ def _insert_into_image_3d(
     values, coordinates = values[idx_inside], coordinates[idx_inside]
 
     # splat data onto grid using trilinear interpolation
-    image, weights = _insert_linear_3d(values, coordinates, image, weights)
+    image, weights = _insert_into_3d_dft_linear(values, coordinates, image, weights)
 
     # ensure correct output image shape
     # single channel input -> (d, h, w)
@@ -286,7 +286,7 @@ def _insert_into_image_3d(
     return image, weights
 
 
-def _insert_linear_3d(
+def _insert_into_3d_dft_linear(
     data: torch.Tensor,  # (b, c)
     coordinates: torch.Tensor,  # (b, zyx)
     image: torch.Tensor,  # (c, d, h, w)
