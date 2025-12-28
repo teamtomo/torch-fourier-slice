@@ -91,9 +91,16 @@ def extract_central_slices_rfft_3d(
     # --- apply anisotropic magnification in Fourier space ---
     if transform_matrix is not None:
         # Generate 2D frequency grid with transformation applied
+        # Calculate full 2D image shape from rfft shape
+        # rfft_shape is (h, w_rfft) where w_rfft = n//2 + 1
+        # Full width is w_full = 2 * (w_rfft - 1) = n
+        h_full = rfft_shape[0]
+        w_full = 2 * (rfft_shape[1] - 1)
+        image_shape_2d = (h_full, w_full)
+
         # torch_grid_utils.fftfreq_grid now handles A^{-T} internally
         transformed_freqs = fftfreq_grid(
-            image_shape=(rfft_shape[0], rfft_shape[1]),
+            image_shape=image_shape_2d,
             rfft=True,
             fftshift=True,
             device=volume_rfft.device,
@@ -103,8 +110,13 @@ def extract_central_slices_rfft_3d(
         # Convert transformed frequencies to DFT array coordinates
         transformed_coords = _fftfreq_to_dft_coordinates(
             frequencies=transformed_freqs,
-            image_shape=(rfft_shape[0], rfft_shape[1]),
+            image_shape=image_shape_2d,
             rfft=True
+        )
+
+        # Flatten coordinates: (h, w, 2) -> (h*w, 2)
+        transformed_coords_flat = einops.rearrange(
+            transformed_coords, "h w yx -> (h w) yx"
         )
 
         # Resample each 2D DFT at the transformed frequencies
@@ -115,36 +127,31 @@ def extract_central_slices_rfft_3d(
                 projection_image_dfts, "... h w -> (...) h w"
             )
 
-            # Expand coordinates for all images in the stack
-            batch_size = projection_image_dfts_flat.shape[0]
-            transformed_coords_expanded = einops.repeat(
-                transformed_coords, "h w yx -> b (h w) yx", b=batch_size
-            )
-
-            # Resample all images
+            # Use channel dimension as batch: pass (b, h, w) as (c=b, h, w)
             resampled = sample_image_2d(
-                image=projection_image_dfts_flat,
-                coordinates=transformed_coords_expanded,
+                image=projection_image_dfts_flat,  # (b, h, w) treated as (c=b, h, w)
+                coordinates=transformed_coords_flat,  # (h*w, 2)
                 interpolation="bilinear"
-            )  # (b, h*w)
+            )  # Returns (h*w, b) - samples for each "channel" (batch)
 
-            # Reshape back to (b, h, w) then to original stack shape
+            # Transpose to get (b, h*w)
+            n_coords = transformed_coords_flat.shape[0]
+            resampled = einops.rearrange(
+                resampled, "n_coords b -> b n_coords", n_coords=n_coords
+            )
+            # Reshape back to (b, h, w) - coordinates now match rfft_shape
             resampled = einops.rearrange(
                 resampled, "b (h w) -> b h w", h=rfft_shape[0], w=rfft_shape[1]
             )
-            projection_image_dfts = einops.rearrange(
-                resampled, "(batch) h w -> batch h w", batch=batch_size
-            ).reshape(*stack_shape, *rfft_shape)
+            # Reshape to original stack_shape
+            projection_image_dfts = resampled.reshape(*stack_shape, *rfft_shape)
         else:
             # Single image case
-            transformed_coords_flat = einops.rearrange(
-                transformed_coords, "h w yx -> (h w) yx"
-            )
             resampled = sample_image_2d(
-                image=projection_image_dfts[None, ...],  # Add batch dim
+                image=projection_image_dfts[None, ...],  # Add batch dim -> (1, h, w)
                 coordinates=transformed_coords_flat[None, ...],  # Add batch dim
                 interpolation="bilinear"
-            )[0]  # Remove batch dim
+            )[0]  # Remove batch dim -> (h*w,)
             projection_image_dfts = einops.rearrange(
                 resampled, "(h w) -> h w", h=rfft_shape[0], w=rfft_shape[1]
             )
@@ -242,9 +249,16 @@ def extract_central_slices_rfft_3d_multichannel(
     # --- apply anisotropic magnification in Fourier space ---
     if transform_matrix is not None:
         # Generate 2D frequency grid with transformation applied
+        # Calculate full 2D image shape from rfft shape
+        # rfft_shape is (h, w_rfft) where w_rfft = n//2 + 1
+        # Full width is w_full = 2 * (w_rfft - 1) = n
+        h_full = rfft_shape[0]
+        w_full = 2 * (rfft_shape[1] - 1)
+        image_shape_2d = (h_full, w_full)
+
         # torch_grid_utils.fftfreq_grid now handles A^{-T} internally
         transformed_freqs = fftfreq_grid(
-            image_shape=(rfft_shape[0], rfft_shape[1]),
+            image_shape=image_shape_2d,
             rfft=True,
             fftshift=True,
             device=volume_rfft.device,
@@ -254,7 +268,7 @@ def extract_central_slices_rfft_3d_multichannel(
         # Convert transformed frequencies to DFT array coordinates
         transformed_coords = _fftfreq_to_dft_coordinates(
             frequencies=transformed_freqs,
-            image_shape=(rfft_shape[0], rfft_shape[1]),
+            image_shape=image_shape_2d,
             rfft=True
         )
 
@@ -289,7 +303,9 @@ def extract_central_slices_rfft_3d_multichannel(
                 resampled, "(b c) (h w) -> b c h w",
                 b=batch_size, c=channels, h=rfft_shape[0], w=rfft_shape[1]
             )
-            projection_image_dfts = resampled.reshape(*stack_shape, channels, *rfft_shape)
+            projection_image_dfts = resampled.reshape(
+                *stack_shape, channels, *rfft_shape
+            )
         else:
             # Single image case with channels
             transformed_coords_expanded = einops.repeat(
