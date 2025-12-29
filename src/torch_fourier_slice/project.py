@@ -6,6 +6,8 @@ from .slice_extraction import (
     extract_central_slices_rfft_2d,
     extract_central_slices_rfft_3d,
     extract_central_slices_rfft_3d_multichannel,
+    transform_slice_2d,
+    transform_slice_2d_multichannel,
 )
 
 
@@ -84,8 +86,20 @@ def project_3d_to_2d(
         rotation_matrices=rotation_matrices,
         fftfreq_max=fftfreq_max,
         zyx_matrices=zyx_matrices,
-        transform_matrix=transform_matrix,
     )  # (..., h, w) rfft stack
+
+    # apply anisotropic magnification transformation if provided
+    if transform_matrix is not None:
+        stack_shape = tuple(rotation_matrices.shape[:-2])
+        # Calculate rfft shape from volume shape
+        # For rfft, width is n//2 + 1
+        rfft_shape = (volume_shape[1], volume_shape[2] // 2 + 1)
+        projections = transform_slice_2d(
+            projection_image_dfts=projections,
+            rfft_shape=rfft_shape,
+            stack_shape=stack_shape,
+            transform_matrix=transform_matrix,
+        )
 
     # transform back to real space
     projections = torch.fft.ifftshift(projections, dim=(-2,))  # ifftshift of 2D rfft
@@ -175,8 +189,22 @@ def project_3d_to_2d_multichannel(
         rotation_matrices=rotation_matrices,
         fftfreq_max=fftfreq_max,
         zyx_matrices=zyx_matrices,
-        transform_matrix=transform_matrix,
-    )  # (..., h, w) rfft stack
+    )  # (..., c, h, w) rfft stack
+
+    # apply anisotropic magnification transformation if provided
+    if transform_matrix is not None:
+        channels = volume.shape[0]
+        stack_shape = tuple(rotation_matrices.shape[:-2])
+        # Calculate rfft shape from volume shape
+        # For rfft, width is n//2 + 1
+        rfft_shape = (volume_shape[1], volume_shape[2] // 2 + 1)
+        projections = transform_slice_2d_multichannel(
+            projection_image_dfts=projections,
+            rfft_shape=rfft_shape,
+            stack_shape=stack_shape,
+            channels=channels,
+            transform_matrix=transform_matrix,
+        )
 
     # transform back to real space
     projections = torch.fft.ifftshift(projections, dim=(-2,))  # ifftshift of 2D rfft
