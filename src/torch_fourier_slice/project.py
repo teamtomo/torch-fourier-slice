@@ -41,7 +41,7 @@ def project_3d_to_2d(
     transform_matrix: torch.Tensor | None
         `(2, 2)` anisotropic magnification matrix in real space (yx ordering).
         If provided, applies the transformation in Fourier space to the extracted
-        slices. The transformation is applied using A^{-T} and includes proper
+        slices. The transformation is applied using {A^-1}T and includes proper
         scaling by 1/|det(A)| to preserve intensity.
 
     Returns
@@ -144,7 +144,7 @@ def project_3d_to_2d_multichannel(
     transform_matrix: torch.Tensor | None
         `(2, 2)` anisotropic magnification matrix in real space (yx ordering).
         If provided, applies the transformation in Fourier space to the extracted
-        slices. The transformation is applied using A^{-T} and includes proper
+        slices. The transformation is applied using {A^-1}T and includes proper
         scaling by 1/|det(A)| to preserve intensity.
 
     Returns

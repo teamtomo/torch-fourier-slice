@@ -220,7 +220,7 @@ def transform_slice_2d(
         frequency_grid=freq_grid,
         real_space_matrix=transform_matrix,
         device=projection_image_dfts.device,
-    )  # (h, w, 2) yx coords with A^{-T} applied
+    )  # (h, w, 2) yx coords
 
     # Convert transformed frequencies to DFT array coordinates
     transformed_coords = _fftfreq_to_dft_coordinates(
