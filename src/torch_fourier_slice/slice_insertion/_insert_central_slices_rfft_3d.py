@@ -366,10 +366,9 @@ def _insert_into_3d_dft_linear(
         insert_conjugate_mask = x0_mask & ~is_dc
 
         if torch.any(insert_conjugate_mask):
-            # Create conjugated data
             data_conj = torch.conj(data)
 
-            # Expand all tensors to (b, c, 2, 2, 2) for consistent masking
+            # Ensure all the tensors have the same shape for masking
             # Using expand() creates views (no memory copies) instead of repeat()
             insert_conjugate_mask_expanded = insert_conjugate_mask.expand(b, c, 2, 2, 2)
             idx_c_expanded = idx_c.expand(b, c, 2, 2, 2)
