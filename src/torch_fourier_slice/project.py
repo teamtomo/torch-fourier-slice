@@ -7,41 +7,7 @@ from .slice_extraction import (
     extract_central_slices_rfft_3d,
     extract_central_slices_rfft_3d_multichannel,
 )
-
-
-def compute_cube_face_averages(volume: torch.Tensor, n: int = 1) -> float:
-    """Get the average value of all voxels within n-voxels of the cube faces.
-
-    Parameters
-    ----------
-    volume: torch.Tensor
-        `(d, d, d)` volume.
-    n: int
-        Number of voxels from the cube faces to include in the average.
-
-    Returns
-    -------
-    float
-        Average value of all voxels within n-voxels of the cube faces.
-    """
-    d, h, w = volume.shape[-3:]
-
-    assert n >= 1, "n must be >= 1"
-    assert len({d, h, w}) == 1, "all dimensions of volume must be equal."
-    assert n < d // 2, "n must be less than half the volume size."
-
-    total_sum = volume.sum()
-    total_voxels = volume.numel()
-
-    # Get the sum of the interior of the cube to avoid double counting
-    interior = volume[n:-n, n:-n, n:-n]
-    interior_sum = interior.sum()
-    interior_voxels = interior.numel()
-
-    face_sum = total_sum - interior_sum
-    face_voxels = total_voxels - interior_voxels
-
-    return float((face_sum / face_voxels).item())
+from .volume_utils import compute_cube_face_averages
 
 
 def project_3d_to_2d(
@@ -70,8 +36,8 @@ def project_3d_to_2d(
         Maximum frequency (cycles per pixel) included in the projection. If None,
         no masking is applied to limit the frequency content.
     zyx_matrices: bool
-        Set to True if the provided matrices left multiply zyx coordinates rather than
-        the default xyz coordinates.
+        Set to True if the provided matrices left multiply zyx column vectors rather
+        than the default xyz column vectors.
 
     Returns
     -------
@@ -91,17 +57,16 @@ def project_3d_to_2d(
         edge_value = compute_cube_face_averages(volume, n=4)  # 4 is arbitrary
         volume = F.pad(volume, pad=[p] * 6, mode="constant", value=edge_value)
 
-    # set the shape as a variable
+    # Track volume shape and mean as variables
     volume_shape = tuple(volume.shape[-3:])
+    volume_mean = volume.mean()
 
     # calculate DFT
     # volume center to array origin
     dft = torch.fft.fftshift(volume, dim=(-3, -2, -1))
     dft = torch.fft.rfftn(dft, dim=(-3, -2, -1))
 
-    # Track and zero out the DC component
-    dft_dc = dft[..., 0, 0, 0].real.item()
-    dft[..., 0, 0, 0] = 0.0
+    dft[..., 0, 0, 0] = 0.0  # Zero out mean to avoid low-res artifacts
 
     # fftshift the transformed volume so DC is at center
     dft = torch.fft.fftshift(dft, dim=(-3, -2))
@@ -122,13 +87,12 @@ def project_3d_to_2d(
         projections, dim=(-2, -1)
     )  # recenter 2D image in real space
 
-    # Account for the subtracted off mean value for the DFT
-    mean_value = dft_dc / dft.numel()
-    projections += mean_value * d
-
     # unpad
     if pad_factor > 1.0:
         projections = F.pad(projections, pad=[-p] * 4)
+
+    # Account for the subtracted off mean value for the DFT
+    projections += volume_mean * d
 
     return projections
 
