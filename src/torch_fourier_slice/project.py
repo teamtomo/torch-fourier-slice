@@ -48,7 +48,6 @@ def project_3d_to_2d(
     volume: torch.Tensor,
     rotation_matrices: torch.Tensor,
     pad_factor: float = 2.0,
-    oversample_factor: int = 2,
     fftfreq_max: float | None = None,
     zyx_matrices: bool = False,
 ) -> torch.Tensor:
@@ -67,10 +66,6 @@ def project_3d_to_2d(
         and likewise `pad_factor=3.0` means going to `(3d, 3d, 3d)`, etc.
         The default value of 2.0 should suffice in most cases. See issue #24
         for more info.
-    oversample_factor: int
-        Integer factor determining oversampling in Fourier space. Values beyond 1
-        can help mitigate aliasing artifacts in the generated projections. The default
-        value of 2 should suffice in most cases.
     fftfreq_max: float | None
         Maximum frequency (cycles per pixel) included in the projection. If None,
         no masking is applied to limit the frequency content.
@@ -89,9 +84,6 @@ def project_3d_to_2d(
 
     if pad_factor < 1.0:
         raise ValueError("pad_factor must be >= 1.0")
-
-    if oversample_factor < 1 or oversample_factor != int(oversample_factor):
-        raise ValueError("oversample_factor must be an integer >= 1")
 
     # Apply edge padding to the nearest integer matching the desired pad_factor
     if pad_factor > 1.0:
@@ -114,19 +106,10 @@ def project_3d_to_2d(
     # fftshift the transformed volume so DC is at center
     dft = torch.fft.fftshift(dft, dim=(-3, -2))
 
-    if oversample_factor > 1:
-        image_shape = (
-            volume_shape[0] * oversample_factor,
-            volume_shape[1] * oversample_factor,
-            volume_shape[2] * oversample_factor,
-        )
-    else:
-        image_shape = volume_shape
-
     # make projections by taking central slices
     projections = extract_central_slices_rfft_3d(
         volume_rfft=dft,
-        image_shape=image_shape,
+        image_shape=volume_shape,
         rotation_matrices=rotation_matrices,
         fftfreq_max=fftfreq_max,
         zyx_matrices=zyx_matrices,
@@ -138,18 +121,6 @@ def project_3d_to_2d(
     projections = torch.fft.ifftshift(
         projections, dim=(-2, -1)
     )  # recenter 2D image in real space
-
-    # donwmsample if oversampled
-    if oversample_factor > 1:
-        # Extract out center square based on original size
-        w, h = projections.shape[-1], projections.shape[-2]
-        start_x = (w - (w // oversample_factor)) // 2
-        start_y = (h - (h // oversample_factor)) // 2
-        projections = projections[
-            ...,
-            start_y : start_y + (h // oversample_factor),
-            start_x : start_x + (w // oversample_factor),
-        ]
 
     # Account for the subtracted off mean value for the DFT
     mean_value = dft_dc / dft.numel()
