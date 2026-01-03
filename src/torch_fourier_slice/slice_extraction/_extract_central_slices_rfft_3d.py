@@ -83,7 +83,6 @@ def _determine_near_zero_conjugate_mask(
 
 def extract_central_slices_rfft_3d(
     volume_rfft: torch.Tensor,
-    image_shape: tuple[int, int, int],
     rotation_matrices: torch.Tensor,  # (..., 3, 3)
     fftfreq_max: float | None = None,
     zyx_matrices: bool = False,
@@ -106,10 +105,6 @@ def extract_central_slices_rfft_3d(
     ----------
     volume_rfft : torch.Tensor
         Input volume in fftshifted RFFT format, shape (d, d, d//2 + 1).
-    image_shape : tuple[int, int, int]
-        Image shape (depth, height, width) of desired extracted slice in real-space.
-        Controls the sampling rate of the Fourier slice (e.g. doubling image shape
-        compared `to volume shape results in 2x oversampling in Fourier space).
     rotation_matrices : torch.Tensor
         Rotation matrices (..., 3, 3) defining the orientations of the central slices
         to extract. Multiple matrices can be provided for batch extraction.
@@ -164,7 +159,7 @@ def extract_central_slices_rfft_3d(
 
     # generate grid of DFT sample frequencies for a central slice spanning the xy-plane
     freq_grid = _central_slice_fftfreq_grid(
-        volume_shape=image_shape,
+        volume_shape=volume_shape,
         rfft=True,
         fftshift=True,
         device=volume_rfft.device,
@@ -233,7 +228,6 @@ def extract_central_slices_rfft_3d(
 
 def extract_central_slices_rfft_3d_multichannel(
     volume_rfft: torch.Tensor,  # (c, d, d, d//2 + 1)
-    image_shape: tuple[int, int, int],
     rotation_matrices: torch.Tensor,  # (..., 3, 3)
     fftfreq_max: float | None = None,
     zyx_matrices: bool = False,
@@ -256,10 +250,6 @@ def extract_central_slices_rfft_3d_multichannel(
     ----------
     volume_rfft : torch.Tensor
         Input multichannel volume in fftshifted RFFT format, shape (c, d, d, d//2 + 1).
-    image_shape : tuple[int, int, int]
-        Image shape (depth, height, width) of desired extracted slice in real-space.
-        Controls the sampling rate of the Fourier slice (e.g. doubling image shape
-        compared to volume shape results in 2x oversampling in Fourier space).
     rotation_matrices : torch.Tensor
         Rotation matrices (..., 3, 3) defining the orientations of the central slices
         to extract. Multiple matrices can be provided for batch extraction.
@@ -315,7 +305,7 @@ def extract_central_slices_rfft_3d_multichannel(
 
     # generate grid of DFT sample frequencies for a central slice spanning the xy-plane
     freq_grid = _central_slice_fftfreq_grid(
-        volume_shape=image_shape,
+        volume_shape=volume_shape,
         rfft=True,
         fftshift=True,
         device=volume_rfft.device,

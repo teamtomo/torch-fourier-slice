@@ -58,7 +58,7 @@ def project_3d_to_2d(
         volume = F.pad(volume, pad=[p] * 6, mode="constant", value=edge_value)
 
     # Track volume shape and mean as variables
-    volume_shape = tuple(volume.shape[-3:])
+    # volume_shape = tuple(volume.shape[-3:])
     volume_mean = volume.mean()
 
     # calculate DFT
@@ -74,7 +74,6 @@ def project_3d_to_2d(
     # make projections by taking central slices
     projections = extract_central_slices_rfft_3d(
         volume_rfft=dft,
-        image_shape=volume_shape,
         rotation_matrices=rotation_matrices,
         fftfreq_max=fftfreq_max,
         zyx_matrices=zyx_matrices,
@@ -162,7 +161,6 @@ def project_3d_to_2d_multichannel(
     # make projections by taking central slices
     projections = extract_central_slices_rfft_3d_multichannel(
         volume_rfft=dft,
-        image_shape=volume_shape,
         rotation_matrices=rotation_matrices,
         fftfreq_max=fftfreq_max,
         zyx_matrices=zyx_matrices,

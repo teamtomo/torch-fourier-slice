@@ -86,7 +86,6 @@ def test_extract_central_slices_rfft_3d(device: str):
 
     slices = extract_central_slices_rfft_3d(
         volume_rfft=volume_rfft,
-        image_shape=image_shape,
         rotation_matrices=torch.tensor(rotation_matrices, device=device),
     )
 
@@ -129,12 +128,10 @@ def test_extract_central_slices_rfft_3d_symmetry_cases(
     # Extract slices for both orientations
     left_slice = extract_central_slices_rfft_3d(
         volume_rfft=volume_rfft,
-        image_shape=volume.shape,
         rotation_matrices=left_rot,
     )
     right_slice = extract_central_slices_rfft_3d(
         volume_rfft=volume_rfft,
-        image_shape=volume.shape,
         rotation_matrices=right_rot,
     )
 
@@ -165,18 +162,13 @@ def test_extract_central_slices_rfft_3d_symmetry_cases_large_volume(
     left_rot = torch.from_numpy(left_rot).to(device)
     right_rot = torch.from_numpy(right_rot).to(device)
 
-    d = volume.shape[0] * 4
-    image_shape = (d, d, d)
-
     # Extract slices for both orientations
     left_slice = extract_central_slices_rfft_3d(
         volume_rfft=volume_rfft,
-        image_shape=image_shape,
         rotation_matrices=left_rot,
     )
     right_slice = extract_central_slices_rfft_3d(
         volume_rfft=volume_rfft,
-        image_shape=image_shape,
         rotation_matrices=right_rot,
     )
 
@@ -218,12 +210,10 @@ def test_extract_central_slices_rfft_3d_symmetry_random_angles(device: str):
         # Extract slices for both orientations
         left_slice = extract_central_slices_rfft_3d(
             volume_rfft=volume_rfft,
-            image_shape=volume.shape,
             rotation_matrices=left_rot,
         )
         right_slice = extract_central_slices_rfft_3d(
             volume_rfft=volume_rfft,
-            image_shape=volume.shape,
             rotation_matrices=right_rot,
         )
 
