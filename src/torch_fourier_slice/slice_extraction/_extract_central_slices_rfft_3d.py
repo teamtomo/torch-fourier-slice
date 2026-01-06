@@ -83,7 +83,6 @@ def _determine_near_zero_conjugate_mask(
 
 def extract_central_slices_rfft_3d(
     volume_rfft: torch.Tensor,
-    image_shape: tuple[int, int, int],
     rotation_matrices: torch.Tensor,  # (..., 3, 3)
     fftfreq_max: float | None = None,
     zyx_matrices: bool = False,
@@ -106,8 +105,6 @@ def extract_central_slices_rfft_3d(
     ----------
     volume_rfft : torch.Tensor
         Input volume in fftshifted RFFT format, shape (d, d, d//2 + 1).
-    image_shape : tuple[int, int, int]
-        Original image/volume shape (depth, height, width) before RFFT.
     rotation_matrices : torch.Tensor
         Rotation matrices (..., 3, 3) defining the orientations of the central slices
         to extract. Multiple matrices can be provided for batch extraction.
@@ -134,6 +131,13 @@ def extract_central_slices_rfft_3d(
     """
     assert volume_rfft.ndim == 3, "Input volume_rfft must be 3D tensor."
 
+    # Get the shape of the original volume from the actual rfft tensor
+    volume_shape = (
+        volume_rfft.shape[-3],
+        volume_rfft.shape[-2],
+        (volume_rfft.shape[-1] - 1) * 2,
+    )
+
     # rotation matrices rotate xyz coordinates, make them rotate zyx coordinates
     # xyz:
     # [a b c] [x]   [ax + by + cz]   [x']
@@ -155,7 +159,7 @@ def extract_central_slices_rfft_3d(
 
     # generate grid of DFT sample frequencies for a central slice spanning the xy-plane
     freq_grid = _central_slice_fftfreq_grid(
-        volume_shape=image_shape,
+        volume_shape=volume_shape,
         rfft=True,
         fftshift=True,
         device=volume_rfft.device,
@@ -204,7 +208,7 @@ def extract_central_slices_rfft_3d(
 
     # convert frequencies to array coordinates in fftshifted DFT
     rotated_coords = _fftfreq_to_dft_coordinates(
-        frequencies=rotated_coords, image_shape=image_shape, rfft=True
+        frequencies=rotated_coords, image_shape=volume_shape, rfft=True
     )
     samples = sample_image_3d(
         image=volume_rfft, coordinates=rotated_coords, interpolation="trilinear"
@@ -223,8 +227,7 @@ def extract_central_slices_rfft_3d(
 
 
 def extract_central_slices_rfft_3d_multichannel(
-    volume_rfft: torch.Tensor,  # (c, d, d, d)
-    image_shape: tuple[int, int, int],
+    volume_rfft: torch.Tensor,  # (c, d, d, d//2 + 1)
     rotation_matrices: torch.Tensor,  # (..., 3, 3)
     fftfreq_max: float | None = None,
     zyx_matrices: bool = False,
@@ -247,8 +250,6 @@ def extract_central_slices_rfft_3d_multichannel(
     ----------
     volume_rfft : torch.Tensor
         Input multichannel volume in fftshifted RFFT format, shape (c, d, d, d//2 + 1).
-    image_shape : tuple[int, int, int]
-        Original image/volume shape (depth, height, width) before RFFT.
     rotation_matrices : torch.Tensor
         Rotation matrices (..., 3, 3) defining the orientations of the central slices
         to extract. Multiple matrices can be provided for batch extraction.
@@ -271,9 +272,17 @@ def extract_central_slices_rfft_3d_multichannel(
     -------
     projection_image_dfts : torch.Tensor
         Extracted central slice DFTs in fftshifted RFFT format, shape
-        (..., c, h, w), where h and w are the height and width of the RFFT slice.
+        (..., c, h, w), where c is the number of channels, h and w are the height
+        and width of the RFFT slice.
     """
     assert volume_rfft.ndim == 4, "Input volume_rfft must be 4D tensor."
+
+    # Get the shape of the original volume from the actual rfft tensor
+    volume_shape = (
+        volume_rfft.shape[-3],
+        volume_rfft.shape[-2],
+        (volume_rfft.shape[-1] - 1) * 2,
+    )
 
     # rotation matrices rotate xyz coordinates, make them rotate zyx coordinates
     # xyz:
@@ -296,7 +305,7 @@ def extract_central_slices_rfft_3d_multichannel(
 
     # generate grid of DFT sample frequencies for a central slice spanning the xy-plane
     freq_grid = _central_slice_fftfreq_grid(
-        volume_shape=image_shape,
+        volume_shape=volume_shape,
         rfft=True,
         fftshift=True,
         device=volume_rfft.device,
@@ -325,7 +334,7 @@ def extract_central_slices_rfft_3d_multichannel(
     valid_coords = einops.rearrange(valid_coords, "hw zyx -> hw zyx 1")
     rotation_matrices = einops.rearrange(rotation_matrices, "... i j -> ... 1 i j")
 
-    rotated_coords = rotation_matrices @ valid_coords  # (..., b, zyx, 1)
+    rotated_coords = rotation_matrices @ valid_coords  # (..., hw, zyx, 1)
 
     # Squeeze out single broadcast dimensions
     rotated_coords = einops.rearrange(rotated_coords, "... hw zyx 1 -> ... hw zyx")
@@ -346,17 +355,17 @@ def extract_central_slices_rfft_3d_multichannel(
 
     # convert frequencies to array coordinates in fftshifted DFT
     rotated_coords = _fftfreq_to_dft_coordinates(
-        frequencies=rotated_coords, image_shape=image_shape, rfft=True
+        frequencies=rotated_coords, image_shape=volume_shape, rfft=True
     )
     samples = sample_image_3d(
         image=volume_rfft, coordinates=rotated_coords, interpolation="trilinear"
-    )  # shape is (..., b, c)
+    )  # shape is (..., hw, c)
 
     # take complex conjugate of values from redundant half transform
     samples[conjugate_mask] = torch.conj(samples[conjugate_mask])
 
     # Rearrange to put channels before spatial dimensions
-    samples = einops.rearrange(samples, "... b c -> ... c b")
+    samples = einops.rearrange(samples, "... hw c -> ... c hw")
 
     # insert samples back into DFTs
     projection_image_dfts = torch.zeros(
