@@ -54,7 +54,7 @@ jobs:
 
       - name: Upload coverage
         # upload the coverage artifact from the runner
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: covreport-${{ matrix.python-version }}
           path: ./.coverage*
