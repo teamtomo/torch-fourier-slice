@@ -9,6 +9,7 @@ from .slice_extraction import (
     transform_slice_2d,
     transform_slice_2d_multichannel,
 )
+from .volume_utils import compute_cube_face_averages
 
 
 def project_3d_to_2d(
@@ -29,15 +30,17 @@ def project_3d_to_2d(
         `(..., 3, 3)` array of rotation matrices for extraction of `images`.
         Rotation matrices left-multiply column vectors containing xyz coordinates.
     pad_factor: float
-        Factor determining the size after padding relative to the original size.
-        A pad_factor of 2.0 doubles the box size, 3.0 triples it, etc.
+        Factor determining how much padding to apply to each side of the volume.
+        Using `pad_factor=2.0` means going from `(d, d, d)` to `(2d, 2d, 2d)` and
+        and likewise `pad_factor=3.0` means going to `(3d, 3d, 3d)`, etc.
         The default value of 2.0 should suffice in most cases. See issue #24
         for more info.
     fftfreq_max: float | None
-        Maximum frequency (cycles per pixel) included in the projection.
+        Maximum frequency (cycles per pixel) included in the projection. If None,
+        no masking is applied to limit the frequency content.
     zyx_matrices: bool
-        Set to True if the provided matrices left multiply zyx column vectors
-        instead of xyz column vectors.
+        Set to True if the provided matrices left multiply zyx column vectors rather
+        than the default xyz column vectors.
     transform_matrix: torch.Tensor | None
         `(2, 2)` anisotropic magnification matrix in real space (yx ordering).
         If provided, applies the transformation in Fourier space to the extracted
@@ -47,7 +50,7 @@ def project_3d_to_2d(
     Returns
     -------
     projections: torch.Tensor
-        `(..., d, d)` array of projection images.
+        `(..., d, d)` array of projected images.
     """
     d, h, w = volume.shape[-3:]
     if len({d, h, w}) != 1:  # use set to remove duplicates
@@ -55,34 +58,30 @@ def project_3d_to_2d(
 
     if pad_factor < 1.0:
         raise ValueError("pad_factor must be >= 1.0")
+
+    # Apply edge padding to the nearest integer matching the desired pad_factor
     if pad_factor > 1.0:
-        p = int((volume.shape[-1] * (pad_factor - 1.0)) // 2)
-        volume = F.pad(volume, pad=[p] * 6)
+        p = int((w * (pad_factor - 1.0)) // 2)
+        edge_value = compute_cube_face_averages(volume, n=4)  # 4 is arbitrary
+        volume = F.pad(volume, pad=[p] * 6, mode="constant", value=edge_value)
 
-    # set the shape as a variable
+    # Track volume shape and mean as variables
     volume_shape = tuple(volume.shape[-3:])
-
-    # premultiply by sinc2
-    grid = fftfreq_grid(
-        image_shape=volume_shape,
-        rfft=False,
-        fftshift=True,
-        norm=True,
-        device=volume.device,
-    )
-    volume = volume * torch.sinc(grid) ** 2
+    volume_mean = volume.mean()
 
     # calculate DFT
     # volume center to array origin
     dft = torch.fft.fftshift(volume, dim=(-3, -2, -1))
     dft = torch.fft.rfftn(dft, dim=(-3, -2, -1))
-    # actual fftshift of 3D rfft
+
+    dft[..., 0, 0, 0] = 0.0  # Zero out mean to avoid low-res artifacts
+
+    # fftshift the transformed volume so DC is at center
     dft = torch.fft.fftshift(dft, dim=(-3, -2))
 
     # make projections by taking central slices
     projections = extract_central_slices_rfft_3d(
         volume_rfft=dft,
-        image_shape=volume_shape,
         rotation_matrices=rotation_matrices,
         fftfreq_max=fftfreq_max,
         zyx_matrices=zyx_matrices,
@@ -111,6 +110,10 @@ def project_3d_to_2d(
     # unpad
     if pad_factor > 1.0:
         projections = F.pad(projections, pad=[-p] * 4)
+
+    # Account for the subtracted off mean value for the DFT
+    projections += volume_mean * d
+
     return projections
 
 
@@ -185,7 +188,6 @@ def project_3d_to_2d_multichannel(
     # make projections by taking central slices
     projections = extract_central_slices_rfft_3d_multichannel(
         volume_rfft=dft,
-        image_shape=volume_shape,
         rotation_matrices=rotation_matrices,
         fftfreq_max=fftfreq_max,
         zyx_matrices=zyx_matrices,
