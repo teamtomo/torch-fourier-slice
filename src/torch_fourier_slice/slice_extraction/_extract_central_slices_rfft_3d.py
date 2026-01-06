@@ -259,6 +259,10 @@ def extract_central_slices_rfft_3d_multichannel(
     zyx_matrices: bool = False,
     x_tolerance: float = 1e-8,
     rot_tolerance: float | None = 1e-8,
+    apply_ewald_curvature: bool = False,
+    ewald_voltage_kv: float = 300.0,  # in kV
+    ewald_flip_sign: bool = False,  # if True, flip the sign of the Ewald curvature
+    ewald_px_size: float = 1.0,  # in Angstroms / pixel
 ) -> torch.Tensor:  # (..., c, h, w)
     """Extract central slices from multichannel fftshifted rfft volume.
 
@@ -293,6 +297,18 @@ def extract_central_slices_rfft_3d_multichannel(
     rot_tolerance : float | None
         Tolerance for zeroing out near-zero elements in the rotation matrices to
         mitigate numerical precision issues. If None, no zeroing is performed.
+    apply_ewald_curvature : bool
+        If True, bend the central slice onto an Ewald sphere. If False (default),
+        use a flat central slice.
+    ewald_voltage_kv : float
+        Acceleration voltage in kV. Default is 300.0 kV. Wavelength is computed
+        from this using relativistic electron wavelength formula.
+    ewald_flip_sign : bool
+        If True, flip the sign of the Ewald curvature (apply the curve in the
+        opposite direction).
+    ewald_px_size : float
+        Pixel size (e.g. Å / pixel). Used to convert between grid units
+        (cycles / pixel) and physical spatial frequencies.
 
     Returns
     -------
@@ -336,6 +352,15 @@ def extract_central_slices_rfft_3d_multichannel(
         fftshift=True,
         device=volume_rfft.device,
     )  # (h, w, 3) zyx coords
+
+    # Optionally, bend the central slice into a curved surface (Ewald sphere)
+    if apply_ewald_curvature:
+        freq_grid = _apply_ewald_curvature(
+            freq_grid=freq_grid,
+            voltage_kv=ewald_voltage_kv,
+            flip_sign=ewald_flip_sign,
+            px_size=ewald_px_size,
+        )
 
     # keep track of some shapes
     channels = volume_rfft.shape[0]
