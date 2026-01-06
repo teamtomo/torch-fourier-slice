@@ -6,6 +6,8 @@ from .slice_extraction import (
     extract_central_slices_rfft_2d,
     extract_central_slices_rfft_3d,
     extract_central_slices_rfft_3d_multichannel,
+    transform_slice_2d,
+    transform_slice_2d_multichannel,
 )
 from .volume_utils import compute_cube_face_averages
 
@@ -16,6 +18,7 @@ def project_3d_to_2d(
     pad_factor: float = 2.0,
     fftfreq_max: float | None = None,
     zyx_matrices: bool = False,
+    transform_matrix: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """Project a cubic volume by sampling a central slice through its DFT.
 
@@ -38,6 +41,11 @@ def project_3d_to_2d(
     zyx_matrices: bool
         Set to True if the provided matrices left multiply zyx column vectors rather
         than the default xyz column vectors.
+    transform_matrix: torch.Tensor | None
+        `(2, 2)` anisotropic magnification matrix in real space (yx ordering).
+        If provided, applies the transformation in Fourier space to the extracted
+        slices. The transformation is applied using {A^-1}T and includes proper
+        scaling by 1/|det(A)| to preserve intensity.
 
     Returns
     -------
@@ -58,7 +66,7 @@ def project_3d_to_2d(
         volume = F.pad(volume, pad=[p] * 6, mode="constant", value=edge_value)
 
     # Track volume shape and mean as variables
-    # volume_shape = tuple(volume.shape[-3:])
+    volume_shape = tuple(volume.shape[-3:])
     volume_mean = volume.mean()
 
     # calculate DFT
@@ -78,6 +86,19 @@ def project_3d_to_2d(
         fftfreq_max=fftfreq_max,
         zyx_matrices=zyx_matrices,
     )  # (..., h, w) rfft stack
+
+    # apply anisotropic magnification transformation if provided
+    if transform_matrix is not None:
+        stack_shape = tuple(rotation_matrices.shape[:-2])
+        # Calculate rfft shape from volume shape
+        # For rfft, width is n//2 + 1
+        rfft_shape = (volume_shape[1], volume_shape[2] // 2 + 1)
+        projections = transform_slice_2d(
+            projection_image_dfts=projections,
+            rfft_shape=rfft_shape,
+            stack_shape=stack_shape,
+            transform_matrix=transform_matrix,
+        )
 
     # transform back to real space
     projections = torch.fft.ifftshift(projections, dim=(-2,))  # ifftshift of 2D rfft
@@ -102,6 +123,7 @@ def project_3d_to_2d_multichannel(
     pad_factor: float = 2.0,
     fftfreq_max: float | None = None,
     zyx_matrices: bool = False,
+    transform_matrix: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """Project a multichannel cubic volume with the same rotations.
 
@@ -122,6 +144,11 @@ def project_3d_to_2d_multichannel(
     zyx_matrices: bool
         Set to True if the provided matrices left multiply zyx column vectors
         instead of xyz column vectors.
+    transform_matrix: torch.Tensor | None
+        `(2, 2)` anisotropic magnification matrix in real space (yx ordering).
+        If provided, applies the transformation in Fourier space to the extracted
+        slices. The transformation is applied using {A^-1}T and includes proper
+        scaling by 1/|det(A)| to preserve intensity.
 
     Returns
     -------
@@ -164,7 +191,22 @@ def project_3d_to_2d_multichannel(
         rotation_matrices=rotation_matrices,
         fftfreq_max=fftfreq_max,
         zyx_matrices=zyx_matrices,
-    )  # (..., h, w) rfft stack
+    )  # (..., c, h, w) rfft stack
+
+    # apply anisotropic magnification transformation if provided
+    if transform_matrix is not None:
+        channels = volume.shape[0]
+        stack_shape = tuple(rotation_matrices.shape[:-2])
+        # Calculate rfft shape from volume shape
+        # For rfft, width is n//2 + 1
+        rfft_shape = (volume_shape[1], volume_shape[2] // 2 + 1)
+        projections = transform_slice_2d_multichannel(
+            projection_image_dfts=projections,
+            rfft_shape=rfft_shape,
+            stack_shape=stack_shape,
+            channels=channels,
+            transform_matrix=transform_matrix,
+        )
 
     # transform back to real space
     projections = torch.fft.ifftshift(projections, dim=(-2,))  # ifftshift of 2D rfft

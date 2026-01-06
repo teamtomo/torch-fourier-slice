@@ -289,3 +289,146 @@ def test_backprojection_friedel_symmetry_x0_plane(cube, device):
     assert (
         mean_error < 1e-5
     ), f"Friedel symmetry violated: mean error = {mean_error:.9f}"
+
+
+@pytest.mark.parametrize("device", DEVICES)
+def test_project_3d_to_2d_with_transform_matrix_identity(device):
+    """Test project_3d_to_2d with identity transform matrix."""
+    volume = torch.randn((32, 32, 32), device=device)
+    rotation_matrices = torch.tensor(
+        special_ortho_group.rvs(dim=3, size=5),
+        device=device,
+    )
+
+    # Identity transform matrix
+    identity_matrix = torch.eye(2, device=device, dtype=torch.float32)
+
+    # Project with and without transform matrix
+    projections_no_transform = project_3d_to_2d(
+        volume=volume,
+        rotation_matrices=rotation_matrices,
+    )
+
+    projections_with_identity = project_3d_to_2d(
+        volume=volume,
+        rotation_matrices=rotation_matrices,
+        transform_matrix=identity_matrix,
+    )
+
+    # Identity transform should approximately preserve the projection
+    # (allowing for small interpolation differences)
+    assert projections_with_identity.shape == projections_no_transform.shape
+    assert torch.allclose(
+        projections_with_identity, projections_no_transform, atol=1e-5
+    )
+
+
+@pytest.mark.parametrize("device", DEVICES)
+def test_project_3d_to_2d_with_transform_matrix_scaling(device):
+    """Test project_3d_to_2d with scaling transform matrix."""
+    volume = torch.randn((32, 32, 32), device=device)
+    rotation_matrices = torch.tensor(
+        special_ortho_group.rvs(dim=3, size=3),
+        device=device,
+    )
+
+    # Scaling transform matrix (2x in y direction)
+    transform_matrix = torch.tensor(
+        [[2.0, 0.0], [0.0, 1.0]], device=device, dtype=torch.float32
+    )
+
+    projections = project_3d_to_2d(
+        volume=volume,
+        rotation_matrices=rotation_matrices,
+        transform_matrix=transform_matrix,
+    )
+
+    # Check output shape and properties
+    assert projections.shape == (3, 32, 32)
+    assert device in str(projections.device)
+    assert projections.dtype == volume.dtype
+
+
+@pytest.mark.parametrize("device", DEVICES)
+@pytest.mark.parametrize(
+    "transform_matrix",
+    [
+        torch.tensor([[1.5, 0.0], [0.0, 1.0]]),  # Stretch in y
+        torch.tensor([[1.0, 0.0], [0.0, 0.7]]),  # Compress in x
+        torch.tensor([[1.2, 0.3], [0.1, 1.1]]),  # Anisotropic
+    ],
+)
+def test_project_3d_to_2d_with_transform_matrix_various(device, transform_matrix):
+    """Test project_3d_to_2d with various transformation matrices."""
+    volume = torch.randn((24, 24, 24), device=device)
+    rotation_matrices = torch.tensor(
+        special_ortho_group.rvs(dim=3, size=4),
+        device=device,
+    )
+
+    # Move transform matrix to device
+    transform_matrix = transform_matrix.to(device=device, dtype=torch.float32)
+
+    projections = project_3d_to_2d(
+        volume=volume,
+        rotation_matrices=rotation_matrices,
+        transform_matrix=transform_matrix,
+    )
+
+    # Check output shape and properties
+    assert projections.shape == (4, 24, 24)
+    assert device in str(projections.device)
+    assert projections.dtype == volume.dtype
+
+    # Check that output is not all zeros
+    assert not torch.allclose(projections, torch.zeros_like(projections), atol=1e-10)
+
+
+@pytest.mark.parametrize("device", DEVICES)
+def test_project_3d_to_2d_multichannel_with_transform_matrix(device):
+    """Test project_3d_to_2d_multichannel with transform matrix."""
+    channels, slices, size = 3, 5, 16
+    volume = torch.randn((channels, size, size, size), device=device)
+    rotation_matrices = torch.tensor(
+        special_ortho_group.rvs(dim=3, size=slices),
+        device=device,
+    )
+
+    # Scaling transform matrix
+    transform_matrix = torch.tensor(
+        [[1.5, 0.0], [0.0, 1.0]], device=device, dtype=torch.float32
+    )
+
+    projections = project_3d_to_2d_multichannel(
+        volume=volume,
+        rotation_matrices=rotation_matrices,
+        transform_matrix=transform_matrix,
+    )
+
+    # Check output shape and properties
+    assert projections.shape == (slices, channels, size, size)
+    assert device in str(projections.device)
+    assert projections.dtype == volume.dtype
+
+
+@pytest.mark.parametrize("device", DEVICES)
+def test_project_3d_to_2d_with_transform_matrix_batched(device):
+    """Test project_3d_to_2d with transform matrix and batched rotations."""
+    volume = torch.randn((20, 20, 20), device=device)
+    # Multiple batch dimensions
+    rotation_matrices = torch.rand((2, 3, 3, 3), device=device)
+
+    # Anisotropic transform matrix
+    transform_matrix = torch.tensor(
+        [[1.2, 0.2], [0.1, 1.1]], device=device, dtype=torch.float32
+    )
+
+    projections = project_3d_to_2d(
+        volume=volume,
+        rotation_matrices=rotation_matrices,
+        transform_matrix=transform_matrix,
+    )
+
+    # Check output shape matches batch dimensions
+    assert projections.shape == (2, 3, 20, 20)
+    assert device in str(projections.device)
