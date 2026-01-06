@@ -19,6 +19,10 @@ def project_3d_to_2d(
     fftfreq_max: float | None = None,
     zyx_matrices: bool = False,
     transform_matrix: torch.Tensor | None = None,
+    apply_ewald_curvature: bool = False,
+    ewald_voltage_kv: float = 300.0,
+    ewald_flip_sign: bool = False,
+    ewald_px_size: float = 1.0,
 ) -> torch.Tensor:
     """Project a cubic volume by sampling a central slice through its DFT.
 
@@ -46,6 +50,18 @@ def project_3d_to_2d(
         If provided, applies the transformation in Fourier space to the extracted
         slices. The transformation is applied using {A^-1}T and includes proper
         scaling by 1/|det(A)| to preserve intensity.
+    apply_ewald_curvature: bool
+        If True, bend the central slice onto an Ewald sphere. If False (default),
+        use a flat central slice.
+    ewald_voltage_kv: float
+        Acceleration voltage in kV. Default is 300.0 kV. Wavelength is computed
+        from this using relativistic electron wavelength formula.
+    ewald_flip_sign: bool
+        If True, flip the sign of the Ewald curvature (apply the curve in the
+        opposite direction).
+    ewald_px_size: float
+        Pixel size (e.g. Å / pixel). Used to convert between grid units
+        (cycles / pixel) and physical spatial frequencies.
 
     Returns
     -------
@@ -85,6 +101,10 @@ def project_3d_to_2d(
         rotation_matrices=rotation_matrices,
         fftfreq_max=fftfreq_max,
         zyx_matrices=zyx_matrices,
+        apply_ewald_curvature=apply_ewald_curvature,
+        ewald_voltage_kv=ewald_voltage_kv,
+        ewald_flip_sign=ewald_flip_sign,
+        ewald_px_size=ewald_px_size,
     )  # (..., h, w) rfft stack
 
     # apply anisotropic magnification transformation if provided
@@ -124,6 +144,10 @@ def project_3d_to_2d_multichannel(
     fftfreq_max: float | None = None,
     zyx_matrices: bool = False,
     transform_matrix: torch.Tensor | None = None,
+    apply_ewald_curvature: bool = False,
+    ewald_voltage_kv: float = 300.0,
+    ewald_flip_sign: bool = False,
+    ewald_px_size: float = 1.0,
 ) -> torch.Tensor:
     """Project a multichannel cubic volume with the same rotations.
 
@@ -149,6 +173,18 @@ def project_3d_to_2d_multichannel(
         If provided, applies the transformation in Fourier space to the extracted
         slices. The transformation is applied using {A^-1}T and includes proper
         scaling by 1/|det(A)| to preserve intensity.
+    apply_ewald_curvature: bool
+        If True, bend the central slice onto an Ewald sphere. If False (default),
+        use a flat central slice.
+    ewald_voltage_kv: float
+        Acceleration voltage in kV. Default is 300.0 kV. Wavelength is computed
+        from this using relativistic electron wavelength formula.
+    ewald_flip_sign: bool
+        If True, flip the sign of the Ewald curvature (apply the curve in the
+        opposite direction).
+    ewald_px_size: float
+        Pixel size (e.g. Å / pixel). Used to convert between grid units
+        (cycles / pixel) and physical spatial frequencies.
 
     Returns
     -------
@@ -191,6 +227,10 @@ def project_3d_to_2d_multichannel(
         rotation_matrices=rotation_matrices,
         fftfreq_max=fftfreq_max,
         zyx_matrices=zyx_matrices,
+        apply_ewald_curvature=apply_ewald_curvature,
+        ewald_voltage_kv=ewald_voltage_kv,
+        ewald_flip_sign=ewald_flip_sign,
+        ewald_px_size=ewald_px_size,
     )  # (..., c, h, w) rfft stack
 
     # apply anisotropic magnification transformation if provided

@@ -432,3 +432,417 @@ def test_project_3d_to_2d_with_transform_matrix_batched(device):
     # Check output shape matches batch dimensions
     assert projections.shape == (2, 3, 20, 20)
     assert device in str(projections.device)
+
+
+@pytest.mark.parametrize("device", DEVICES)
+def test_project_3d_to_2d_with_ewald_curvature(device):
+    """Test project_3d_to_2d with Ewald sphere curvature enabled."""
+    volume = torch.randn((32, 32, 32), device=device)
+    rotation_matrices = torch.tensor(
+        special_ortho_group.rvs(dim=3, size=5),
+        device=device,
+    )
+
+    # Project with Ewald curvature
+    projections_ewald = project_3d_to_2d(
+        volume=volume,
+        rotation_matrices=rotation_matrices,
+        apply_ewald_curvature=True,
+        ewald_voltage_kv=300.0,
+        ewald_px_size=1.0,
+    )
+
+    # Check output shape and properties
+    assert projections_ewald.shape == (5, 32, 32)
+    assert device in str(projections_ewald.device)
+    assert projections_ewald.dtype == volume.dtype
+
+    # Check that output is not all zeros
+    assert not torch.allclose(
+        projections_ewald, torch.zeros_like(projections_ewald), atol=1e-10
+    )
+
+
+@pytest.mark.parametrize("device", DEVICES)
+def test_project_3d_to_2d_ewald_vs_flat(device):
+    """Test that Ewald curvature produces different results than flat slice."""
+    volume = torch.randn((24, 24, 24), device=device)
+    rotation_matrices = torch.tensor(
+        special_ortho_group.rvs(dim=3, size=3),
+        device=device,
+    )
+
+    # Project with flat slice (default)
+    projections_flat = project_3d_to_2d(
+        volume=volume,
+        rotation_matrices=rotation_matrices,
+        apply_ewald_curvature=False,
+    )
+
+    # Project with Ewald curvature
+    projections_ewald = project_3d_to_2d(
+        volume=volume,
+        rotation_matrices=rotation_matrices,
+        apply_ewald_curvature=True,
+        ewald_voltage_kv=300.0,
+        ewald_px_size=1.0,
+    )
+
+    # Results should be different (Ewald curvature changes the slice)
+    assert projections_flat.shape == projections_ewald.shape
+    assert not torch.allclose(projections_flat, projections_ewald, atol=1e-6)
+
+
+@pytest.mark.parametrize("device", DEVICES)
+@pytest.mark.parametrize("voltage_kv", [100.0, 200.0, 300.0, 400.0])
+def test_project_3d_to_2d_ewald_different_voltages(device, voltage_kv):
+    """Test project_3d_to_2d with different acceleration voltages."""
+    volume = torch.randn((20, 20, 20), device=device)
+    rotation_matrices = torch.tensor(
+        special_ortho_group.rvs(dim=3, size=2),
+        device=device,
+    )
+
+    projections = project_3d_to_2d(
+        volume=volume,
+        rotation_matrices=rotation_matrices,
+        apply_ewald_curvature=True,
+        ewald_voltage_kv=voltage_kv,
+        ewald_px_size=1.0,
+    )
+
+    # Check output shape and properties
+    assert projections.shape == (2, 20, 20)
+    assert device in str(projections.device)
+    assert not torch.allclose(projections, torch.zeros_like(projections), atol=1e-10)
+
+
+@pytest.mark.parametrize("device", DEVICES)
+def test_project_3d_to_2d_ewald_flip_sign(device):
+    """Test that flip_sign produces different results."""
+    volume = torch.randn((24, 24, 24), device=device)
+    rotation_matrices = torch.tensor(
+        special_ortho_group.rvs(dim=3, size=2),
+        device=device,
+    )
+
+    # Project with normal Ewald curvature
+    projections_normal = project_3d_to_2d(
+        volume=volume,
+        rotation_matrices=rotation_matrices,
+        apply_ewald_curvature=True,
+        ewald_voltage_kv=300.0,
+        ewald_flip_sign=False,
+        ewald_px_size=1.0,
+    )
+
+    # Project with flipped sign
+    projections_flipped = project_3d_to_2d(
+        volume=volume,
+        rotation_matrices=rotation_matrices,
+        apply_ewald_curvature=True,
+        ewald_voltage_kv=300.0,
+        ewald_flip_sign=True,
+        ewald_px_size=1.0,
+    )
+
+    # Results should be different
+    assert projections_normal.shape == projections_flipped.shape
+    assert not torch.allclose(projections_normal, projections_flipped, atol=1e-6)
+
+
+@pytest.mark.parametrize("device", DEVICES)
+@pytest.mark.parametrize("px_size", [0.5, 1.0, 2.0, 5.0])
+def test_project_3d_to_2d_ewald_different_pixel_sizes(device, px_size):
+    """Test project_3d_to_2d with different pixel sizes."""
+    volume = torch.randn((20, 20, 20), device=device)
+    rotation_matrices = torch.tensor(
+        special_ortho_group.rvs(dim=3, size=2),
+        device=device,
+    )
+
+    projections = project_3d_to_2d(
+        volume=volume,
+        rotation_matrices=rotation_matrices,
+        apply_ewald_curvature=True,
+        ewald_voltage_kv=300.0,
+        ewald_px_size=px_size,
+    )
+
+    # Check output shape and properties
+    assert projections.shape == (2, 20, 20)
+    assert device in str(projections.device)
+
+
+@pytest.mark.parametrize("device", DEVICES)
+def test_project_3d_to_2d_multichannel_with_ewald_curvature(device):
+    """Test project_3d_to_2d_multichannel with Ewald sphere curvature."""
+    channels, slices, size = 3, 4, 16
+    volume = torch.randn((channels, size, size, size), device=device)
+    rotation_matrices = torch.tensor(
+        special_ortho_group.rvs(dim=3, size=slices),
+        device=device,
+    )
+
+    # Project with Ewald curvature
+    projections = project_3d_to_2d_multichannel(
+        volume=volume,
+        rotation_matrices=rotation_matrices,
+        apply_ewald_curvature=True,
+        ewald_voltage_kv=300.0,
+        ewald_px_size=1.0,
+    )
+
+    # Check output shape and properties
+    assert projections.shape == (slices, channels, size, size)
+    assert device in str(projections.device)
+    assert projections.dtype == volume.dtype
+
+
+@pytest.mark.parametrize("device", DEVICES)
+def test_project_3d_to_2d_multichannel_ewald_vs_flat(device):
+    """Test that multichannel Ewald curvature produces different results."""
+    channels, slices, size = 2, 3, 16
+    volume = torch.randn((channels, size, size, size), device=device)
+    rotation_matrices = torch.tensor(
+        special_ortho_group.rvs(dim=3, size=slices),
+        device=device,
+    )
+
+    # Project with flat slice
+    projections_flat = project_3d_to_2d_multichannel(
+        volume=volume,
+        rotation_matrices=rotation_matrices,
+        apply_ewald_curvature=False,
+    )
+
+    # Project with Ewald curvature
+    projections_ewald = project_3d_to_2d_multichannel(
+        volume=volume,
+        rotation_matrices=rotation_matrices,
+        apply_ewald_curvature=True,
+        ewald_voltage_kv=300.0,
+        ewald_px_size=1.0,
+    )
+
+    # Results should be different
+    assert projections_flat.shape == projections_ewald.shape
+    assert not torch.allclose(projections_flat, projections_ewald, atol=1e-6)
+
+
+@pytest.mark.parametrize("device", DEVICES)
+def test_backproject_2d_to_3d_with_ewald_curvature(device):
+    """Test backproject_2d_to_3d with Ewald sphere curvature."""
+    images = torch.randn((5, 32, 32), device=device)
+    rotation_matrices = torch.tensor(
+        special_ortho_group.rvs(dim=3, size=5),
+        device=device,
+    )
+
+    # Backproject with Ewald curvature
+    reconstruction = backproject_2d_to_3d(
+        images=images,
+        rotation_matrices=rotation_matrices,
+        apply_ewald_curvature=True,
+        ewald_voltage_kv=300.0,
+        ewald_px_size=1.0,
+    )
+
+    # Check output shape and properties
+    assert reconstruction.shape == (32, 32, 32)
+    assert device in str(reconstruction.device)
+    assert reconstruction.dtype == images.dtype
+
+
+@pytest.mark.parametrize("device", DEVICES)
+def test_backproject_2d_to_3d_ewald_vs_flat(device):
+    """Test that Ewald curvature produces different backprojection results."""
+    images = torch.randn((4, 24, 24), device=device)
+    rotation_matrices = torch.tensor(
+        special_ortho_group.rvs(dim=3, size=4),
+        device=device,
+    )
+
+    # Backproject with flat slice
+    reconstruction_flat = backproject_2d_to_3d(
+        images=images,
+        rotation_matrices=rotation_matrices,
+        apply_ewald_curvature=False,
+    )
+
+    # Backproject with Ewald curvature
+    reconstruction_ewald = backproject_2d_to_3d(
+        images=images,
+        rotation_matrices=rotation_matrices,
+        apply_ewald_curvature=True,
+        ewald_voltage_kv=300.0,
+        ewald_px_size=1.0,
+    )
+
+    # Results should be different
+    assert reconstruction_flat.shape == reconstruction_ewald.shape
+    assert not torch.allclose(reconstruction_flat, reconstruction_ewald, atol=1e-6)
+
+
+@pytest.mark.parametrize("device", DEVICES)
+def test_backproject_2d_to_3d_multichannel_with_ewald_curvature(device):
+    """Test backproject_2d_to_3d_multichannel with Ewald sphere curvature."""
+    channels, slices, size = 3, 4, 16
+    images = torch.randn((slices, channels, size, size), device=device)
+    rotation_matrices = torch.tensor(
+        special_ortho_group.rvs(dim=3, size=slices),
+        device=device,
+    )
+
+    # Backproject with Ewald curvature
+    reconstruction = backproject_2d_to_3d_multichannel(
+        images=images,
+        rotation_matrices=rotation_matrices,
+        apply_ewald_curvature=True,
+        ewald_voltage_kv=300.0,
+        ewald_px_size=1.0,
+    )
+
+    # Check output shape and properties
+    assert reconstruction.shape == (channels, size, size, size)
+    assert device in str(reconstruction.device)
+    assert reconstruction.dtype == images.dtype
+
+
+@pytest.mark.parametrize("device", DEVICES)
+def test_backproject_2d_to_3d_multichannel_ewald_vs_flat(device):
+    """Test that multichannel Ewald curvature produces different backprojection."""
+    channels, slices, size = 2, 3, 16
+    images = torch.randn((slices, channels, size, size), device=device)
+    rotation_matrices = torch.tensor(
+        special_ortho_group.rvs(dim=3, size=slices),
+        device=device,
+    )
+
+    # Backproject with flat slice
+    reconstruction_flat = backproject_2d_to_3d_multichannel(
+        images=images,
+        rotation_matrices=rotation_matrices,
+        apply_ewald_curvature=False,
+    )
+
+    # Backproject with Ewald curvature
+    reconstruction_ewald = backproject_2d_to_3d_multichannel(
+        images=images,
+        rotation_matrices=rotation_matrices,
+        apply_ewald_curvature=True,
+        ewald_voltage_kv=300.0,
+        ewald_px_size=1.0,
+    )
+
+    # Results should be different
+    assert reconstruction_flat.shape == reconstruction_ewald.shape
+    assert not torch.allclose(reconstruction_flat, reconstruction_ewald, atol=1e-6)
+
+
+@pytest.mark.parametrize("device", DEVICES)
+def test_projection_backprojection_cycle_with_ewald(device):
+    """Test projection-backprojection cycle with Ewald curvature."""
+    volume = torch.randn((24, 24, 24), device=device)
+    rotation_matrices = torch.tensor(
+        special_ortho_group.rvs(dim=3, size=100),
+        device=device,
+    )
+
+    # Project with Ewald curvature
+    projections = project_3d_to_2d(
+        volume=volume,
+        rotation_matrices=rotation_matrices,
+        apply_ewald_curvature=True,
+        ewald_voltage_kv=300.0,
+        ewald_px_size=1.0,
+    )
+
+    # Backproject with Ewald curvature (must match!)
+    reconstruction = backproject_2d_to_3d(
+        images=projections,
+        rotation_matrices=rotation_matrices,
+        apply_ewald_curvature=True,
+        ewald_voltage_kv=300.0,
+        ewald_px_size=1.0,
+    )
+
+    assert device in str(projections.device)
+    assert device in str(reconstruction.device)
+    assert reconstruction.shape == volume.shape
+
+    # Calculate FSC between original and reconstruction
+    # Move to cpu as a workaround for FSC not running on GPU
+    _fsc = fsc(volume.to("cpu"), reconstruction.float().to("cpu"))
+    # With Ewald curvature, reconstruction quality may be different
+    # but should still be reasonable (lower threshold than flat case)
+    assert torch.all(_fsc[-10:] > 0.85)
+
+
+@pytest.mark.parametrize("device", DEVICES)
+def test_projection_backprojection_cycle_ewald_mismatch(device):
+    """Test that mismatched Ewald settings produce different results."""
+    volume = torch.randn((20, 20, 20), device=device)
+    rotation_matrices = torch.tensor(
+        special_ortho_group.rvs(dim=3, size=50),
+        device=device,
+    )
+
+    # Project with Ewald curvature
+    projections = project_3d_to_2d(
+        volume=volume,
+        rotation_matrices=rotation_matrices,
+        apply_ewald_curvature=True,
+        ewald_voltage_kv=300.0,
+        ewald_px_size=1.0,
+    )
+
+    # Backproject WITHOUT Ewald curvature (mismatch)
+    reconstruction_mismatch = backproject_2d_to_3d(
+        images=projections,
+        rotation_matrices=rotation_matrices,
+        apply_ewald_curvature=False,
+    )
+
+    # Backproject WITH Ewald curvature (match)
+    reconstruction_match = backproject_2d_to_3d(
+        images=projections,
+        rotation_matrices=rotation_matrices,
+        apply_ewald_curvature=True,
+        ewald_voltage_kv=300.0,
+        ewald_px_size=1.0,
+    )
+
+    # Mismatched should produce different results than matched
+    assert reconstruction_mismatch.shape == reconstruction_match.shape
+    assert not torch.allclose(reconstruction_mismatch, reconstruction_match, atol=1e-5)
+
+
+@pytest.mark.parametrize("device", DEVICES)
+def test_ewald_curvature_combined_with_transform_matrix(device):
+    """Test that Ewald curvature can be combined with transform matrix."""
+    volume = torch.randn((24, 24, 24), device=device)
+    rotation_matrices = torch.tensor(
+        special_ortho_group.rvs(dim=3, size=3),
+        device=device,
+    )
+
+    # Scaling transform matrix
+    transform_matrix = torch.tensor(
+        [[1.5, 0.0], [0.0, 1.0]], device=device, dtype=torch.float32
+    )
+
+    # Project with both Ewald curvature and transform matrix
+    projections = project_3d_to_2d(
+        volume=volume,
+        rotation_matrices=rotation_matrices,
+        transform_matrix=transform_matrix,
+        apply_ewald_curvature=True,
+        ewald_voltage_kv=300.0,
+        ewald_px_size=1.0,
+    )
+
+    # Check output shape and properties
+    assert projections.shape == (3, 24, 24)
+    assert device in str(projections.device)
+    assert not torch.allclose(projections, torch.zeros_like(projections), atol=1e-10)
