@@ -541,23 +541,32 @@ def transform_slice_2d_multichannel(
             projection_image_dfts, "... c h w -> (...) c h w"
         )
 
-        # Process each channel separately
+        # Process each (batch, channel) combination
         batch_size = projection_image_dfts_flat.shape[0]
-        transformed_coords_expanded = einops.repeat(
-            transformed_coords_flat, "n yx -> (b c) n yx", b=batch_size, c=channels
-        )
 
-        # Flatten channels into batch for sampling
+        # Flatten channels into batch for sampling - treat (b, c, h, w) as (b*c, h, w)
         projection_image_dfts_for_sampling = einops.rearrange(
             projection_image_dfts_flat, "b c h w -> (b c) h w"
         )
 
-        # Resample all images
+        # Use non-batched coordinates for all (b, c) combinations
+        # sample_image_2d will return (h*w, b*c) when image is (b*c, h, w)
+        # and coords are (h*w, 2)
         resampled = sample_image_2d(
-            image=projection_image_dfts_for_sampling,
-            coordinates=transformed_coords_expanded,
+            image=projection_image_dfts_for_sampling,  # (b*c, h, w)
+            coordinates=transformed_coords_flat,  # (h*w, 2) - non-batched
             interpolation="bilinear",
-        )  # (b*c, h*w)
+        )  # Returns (h*w, b*c) - samples for each coordinate, for each batch/channel
+
+        # Transpose to get (b*c, h*w)
+        n_coords = transformed_coords_flat.shape[0]
+        resampled = einops.rearrange(
+            resampled,
+            "n_coords (b c) -> (b c) n_coords",
+            b=batch_size,
+            c=channels,
+            n_coords=n_coords,
+        )
 
         # Reshape back to (b, c, h, w) then to original stack shape
         resampled = einops.rearrange(
@@ -571,14 +580,19 @@ def transform_slice_2d_multichannel(
         projection_image_dfts = resampled.reshape(*stack_shape, channels, *rfft_shape)
     else:
         # Single image case with channels
-        transformed_coords_expanded = einops.repeat(
-            transformed_coords_flat, "n yx -> c n yx", c=channels
-        )
+        # Use non-batched coordinates - sample_image_2d will return (h*w, c)
+        # when image is (c, h, w) and coords are (h*w, 2)
         resampled = sample_image_2d(
-            image=projection_image_dfts,
-            coordinates=transformed_coords_expanded,
+            image=projection_image_dfts,  # (c, h, w)
+            coordinates=transformed_coords_flat,  # (h*w, 2) - non-batched
             interpolation="bilinear",
-        )  # (c, h*w)
+        )  # Returns (h*w, c) - samples for each coordinate, for each channel
+
+        # Transpose to get (c, h*w)
+        n_coords = transformed_coords_flat.shape[0]
+        resampled = einops.rearrange(
+            resampled, "n_coords c -> c n_coords", c=channels, n_coords=n_coords
+        )
         projection_image_dfts = einops.rearrange(
             resampled, "c (h w) -> c h w", h=rfft_shape[0], w=rfft_shape[1]
         )
