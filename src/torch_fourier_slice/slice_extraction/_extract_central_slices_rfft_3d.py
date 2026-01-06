@@ -1,7 +1,7 @@
 import einops
 import torch
-from torch_image_interpolation import sample_image_2d, sample_image_3d
 from torch_grid_utils.fftfreq_grid import fftfreq_grid, transform_fftfreq_grid
+from torch_image_interpolation import sample_image_2d, sample_image_3d
 
 from .._dft_utils import _fftfreq_to_dft_coordinates
 from .._grids import _central_slice_fftfreq_grid
@@ -426,15 +426,11 @@ def transform_slice_2d(
 
     # Convert transformed frequencies to DFT array coordinates
     transformed_coords = _fftfreq_to_dft_coordinates(
-        frequencies=transformed_freqs,
-        image_shape=image_shape_2d,
-        rfft=True
+        frequencies=transformed_freqs, image_shape=image_shape_2d, rfft=True
     )
 
     # Flatten coordinates: (h, w, 2) -> (h*w, 2)
-    transformed_coords_flat = einops.rearrange(
-        transformed_coords, "h w yx -> (h w) yx"
-    )
+    transformed_coords_flat = einops.rearrange(transformed_coords, "h w yx -> (h w) yx")
 
     # Resample each 2D DFT at the transformed frequencies
     # Need to handle batch dimensions in stack_shape
@@ -448,7 +444,7 @@ def transform_slice_2d(
         resampled = sample_image_2d(
             image=projection_image_dfts_flat,  # (b, h, w) treated as (c=b, h, w)
             coordinates=transformed_coords_flat,  # (h*w, 2)
-            interpolation="bilinear"
+            interpolation="bilinear",
         )  # Returns (h*w, b) - samples for each "channel" (batch)
 
         # Transpose to get (b, h*w)
@@ -466,9 +462,10 @@ def transform_slice_2d(
         # Single image case
         resampled = sample_image_2d(
             image=projection_image_dfts[None, ...],  # Add batch dim -> (1, h, w)
-            coordinates=transformed_coords_flat[None, ...],  # Add batch dim
-            interpolation="bilinear"
-        )[0]  # Remove batch dim -> (h*w,)
+            coordinates=transformed_coords_flat,  # (h*w, 2) - no batch dim
+            interpolation="bilinear",
+        )  # Returns (h*w, 1) - samples for single "channel" (batch)
+        resampled = resampled[:, 0]  # Remove batch dim -> (h*w,)
         projection_image_dfts = einops.rearrange(
             resampled, "(h w) -> h w", h=rfft_shape[0], w=rfft_shape[1]
         )
@@ -530,15 +527,11 @@ def transform_slice_2d_multichannel(
 
     # Convert transformed frequencies to DFT array coordinates
     transformed_coords = _fftfreq_to_dft_coordinates(
-        frequencies=transformed_freqs,
-        image_shape=image_shape_2d,
-        rfft=True
+        frequencies=transformed_freqs, image_shape=image_shape_2d, rfft=True
     )
 
     # Flatten coordinates: (h, w, 2) -> (h*w, 2)
-    transformed_coords_flat = einops.rearrange(
-        transformed_coords, "h w yx -> (h w) yx"
-    )
+    transformed_coords_flat = einops.rearrange(transformed_coords, "h w yx -> (h w) yx")
 
     # Resample each 2D DFT at the transformed frequencies
     # Handle batch and channel dimensions
@@ -551,8 +544,7 @@ def transform_slice_2d_multichannel(
         # Process each channel separately
         batch_size = projection_image_dfts_flat.shape[0]
         transformed_coords_expanded = einops.repeat(
-            transformed_coords_flat, "n yx -> (b c) n yx",
-            b=batch_size, c=channels
+            transformed_coords_flat, "n yx -> (b c) n yx", b=batch_size, c=channels
         )
 
         # Flatten channels into batch for sampling
@@ -564,17 +556,19 @@ def transform_slice_2d_multichannel(
         resampled = sample_image_2d(
             image=projection_image_dfts_for_sampling,
             coordinates=transformed_coords_expanded,
-            interpolation="bilinear"
+            interpolation="bilinear",
         )  # (b*c, h*w)
 
         # Reshape back to (b, c, h, w) then to original stack shape
         resampled = einops.rearrange(
-            resampled, "(b c) (h w) -> b c h w",
-            b=batch_size, c=channels, h=rfft_shape[0], w=rfft_shape[1]
+            resampled,
+            "(b c) (h w) -> b c h w",
+            b=batch_size,
+            c=channels,
+            h=rfft_shape[0],
+            w=rfft_shape[1],
         )
-        projection_image_dfts = resampled.reshape(
-            *stack_shape, channels, *rfft_shape
-        )
+        projection_image_dfts = resampled.reshape(*stack_shape, channels, *rfft_shape)
     else:
         # Single image case with channels
         transformed_coords_expanded = einops.repeat(
@@ -583,7 +577,7 @@ def transform_slice_2d_multichannel(
         resampled = sample_image_2d(
             image=projection_image_dfts,
             coordinates=transformed_coords_expanded,
-            interpolation="bilinear"
+            interpolation="bilinear",
         )  # (c, h*w)
         projection_image_dfts = einops.rearrange(
             resampled, "c (h w) -> c h w", h=rfft_shape[0], w=rfft_shape[1]
